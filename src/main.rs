@@ -1,13 +1,17 @@
 #![deny(clippy::all, clippy::pedantic, clippy::nursery, warnings)]
+mod bytecode;
+mod codegen;
 mod types;
 
+use bytecode::ByteCode;
+use codegen::CodeGen;
 use inkwell::context::Context;
-use types::ByteCode;
 
 fn main() {
     let context = Context::create();
-    let bytecode = ByteCode::new(&context);
-    let result = bytecode.execute();
+    let bytecode = ByteCode::new();
+    let codegen = CodeGen::new(&context);
+    let result = codegen.execute(bytecode);
 
     println!("result: {result}");
 }
