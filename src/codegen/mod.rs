@@ -1,9 +1,9 @@
-mod builtins;
-mod context;
-mod context_ergonomics;
-mod llvm_struct;
-mod types;
-mod typestore;
+pub(in crate::codegen) mod builtins;
+pub(in crate::codegen) mod context;
+pub(in crate::codegen) mod context_ergonomics;
+pub(in crate::codegen) mod llvm_struct;
+pub(in crate::codegen) mod types;
+pub(in crate::codegen) mod typestore;
 
 use std::collections::HashMap;
 

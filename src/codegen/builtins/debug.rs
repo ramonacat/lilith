@@ -2,29 +2,10 @@ use std::fmt::Write;
 
 use crate::codegen::{
     TypeTag,
-    types::{ClassId, functions::FunctionArgument},
+    types::{functions::FunctionSignature, value::Value},
 };
 
-#[repr(C)]
-// TODO this should really be in crate::codegen::types, ideally somehow automagically synced with
-// the inkwell definition
-pub(super) struct Value {
-    tag: TypeTag,
-    unused_0: u8,
-    class_id: ClassId,
-    unused_1: u32,
-    raw: u64,
-}
-
-#[repr(C)]
-pub(super) struct FunctionSignature {
-    class_id: u16,
-    unused: u16,
-    return_type_id: u32, // TODO Should be newtyped into TypeId or something
-    arguments: *const FunctionArgument,
-}
-
-impl std::fmt::Debug for Value {
+impl std::fmt::Debug for crate::codegen::types::value::Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.tag {
             TypeTag::Primitive => write!(

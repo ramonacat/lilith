@@ -14,6 +14,7 @@ pub(super) fn register<'ctx>(
 ) -> TypeStore<'ctx> {
     let types_global_type = types
         .value()
+        .llvm_type()
         // TODO this really should be dynamic, but for prototyping 256 predefined + 256 complex
         // types should be fine
         .array_type(PREDEFINED_TYPES_COUNT + 256);
@@ -30,7 +31,7 @@ pub(super) fn register<'ctx>(
     TypeStore {
         store: types_global,
         context,
-        value_type: types.value(),
+        value_type: types.value().llvm_type(),
     }
 }
 pub(super) struct TypeStore<'ctx> {

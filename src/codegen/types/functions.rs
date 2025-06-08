@@ -12,3 +12,12 @@ llvm_struct! {
         type_id: u32
     }
 }
+
+llvm_struct! {
+    struct FunctionSignature {
+        class_id: u16,
+        unused: u16,
+        return_type_id: u32,
+        arguments: *const FunctionArgument
+    }
+}
