@@ -6,6 +6,5 @@ pub enum ConstValue {
 
 pub enum Value {
     Const(ConstValue),
-    #[allow(unused)]
     Opaque(ResultId),
 }

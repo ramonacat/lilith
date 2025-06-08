@@ -96,7 +96,6 @@ impl<'ctx> ArgumentType<'ctx> {
 
 // TODO instead of return straight up StructValues, should we do some newtyping to avoid type
 // confusion?
-#[allow(unused)]
 impl<'ctx> Types<'ctx> {
     pub(super) const fn value(&self) -> StructType<'ctx> {
         self.value_type
@@ -198,12 +197,14 @@ impl<'ctx> Types<'ctx> {
         let class_id_gep = builder
             .build_struct_gep(self.function_signature_type, signature_ptr, 0, "class_id")
             .unwrap();
-        builder.build_store(class_id_gep, class_id);
+        builder.build_store(class_id_gep, class_id).unwrap();
 
         let unused_gep = builder
             .build_struct_gep(self.function_signature_type, signature_ptr, 1, "unused")
             .unwrap();
-        builder.build_store(unused_gep, self.context.i16_type().const_int(0, false));
+        builder
+            .build_store(unused_gep, self.context.i16_type().const_int(0, false))
+            .unwrap();
 
         let return_type_gep = builder
             .build_struct_gep(
@@ -213,12 +214,12 @@ impl<'ctx> Types<'ctx> {
                 "return_type",
             )
             .unwrap();
-        builder.build_store(return_type_gep, return_type);
+        builder.build_store(return_type_gep, return_type).unwrap();
 
         let arguments_gep = builder
             .build_struct_gep(self.function_signature_type, signature_ptr, 2, "arguments")
             .unwrap();
-        builder.build_store(arguments_gep, arguments);
+        builder.build_store(arguments_gep, arguments).unwrap();
 
         let signature_u64 = builder
             .build_ptr_to_int(signature_ptr, self.context.i64_type(), "signature_u64")
@@ -256,26 +257,32 @@ impl<'ctx> Types<'ctx> {
         let type_tag_gep = builder
             .build_struct_gep(self.value_type, target, 0, "type_tag")
             .unwrap();
-        builder.build_store(type_tag_gep, type_tag);
+        builder.build_store(type_tag_gep, type_tag).unwrap();
 
         let unused_0_gep = builder
             .build_struct_gep(self.value_type, target, 1, "unused_0")
             .unwrap();
-        builder.build_store(unused_0_gep, self.context.i8_type().const_zero());
+        builder
+            .build_store(unused_0_gep, self.context.i8_type().const_zero())
+            .unwrap();
 
         let class_id_gep = builder
             .build_struct_gep(self.value_type, target, 2, "class_id")
             .unwrap();
-        builder.build_store(class_id_gep, class_id);
+        builder.build_store(class_id_gep, class_id).unwrap();
 
         let unused_1_gep = builder
             .build_struct_gep(self.value_type, target, 3, "unused_1")
             .unwrap();
-        builder.build_store(unused_1_gep, self.context.i32_type().const_zero());
+        builder
+            .build_store(unused_1_gep, self.context.i32_type().const_zero())
+            .unwrap();
 
         let value_gep = builder
             .build_struct_gep(self.value_type, target, 4, "value")
             .unwrap();
-        builder.build_store(value_gep, self.context.i32_type().const_zero());
+        builder
+            .build_store(value_gep, self.context.i32_type().const_zero())
+            .unwrap();
     }
 }

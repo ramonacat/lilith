@@ -31,7 +31,6 @@ pub(super) fn register<'ctx, 'types>(
         types,
     }
 }
-#[allow(unused)]
 pub(super) struct TypeStore<'ctx, 'types> {
     context: &'ctx Context,
     types: &'types Types<'ctx>,
@@ -39,7 +38,6 @@ pub(super) struct TypeStore<'ctx, 'types> {
 }
 
 impl<'ctx> TypeStore<'ctx, '_> {
-    #[allow(unused)]
     pub(crate) fn get_slot(
         &self,
         arg: u64,
