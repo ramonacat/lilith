@@ -1,3 +1,7 @@
+mod context_ergonomics;
+mod types;
+mod typestore;
+
 use std::collections::HashMap;
 
 use inkwell::{
@@ -5,6 +9,7 @@ use inkwell::{
     context::Context,
     values::{BasicValueEnum, IntValue},
 };
+use types::{ArgumentType, TypeTag};
 
 use crate::{
     bytecode::{ByteCode, Expression, ResultId},
@@ -81,6 +86,28 @@ impl<'ctx> CodeGen<'ctx> {
         let entry_block = self.context.append_basic_block(main, "entry");
         builder.position_at_end(entry_block);
 
+        let types = types::register(self.context);
+        let typestore = typestore::register(self.context, &builder, &module, &types);
+
+        let arguments = types.make_function_arguments(
+            &builder,
+            &[ArgumentType::new(
+                self.context.i32_type().const_int(1, false),
+                self.context
+                    .i32_type()
+                    .const_int(TypeTag::U64 as u64, false),
+            )],
+        );
+        types.make_function_signature(
+            &builder,
+            self.context.i16_type().const_int(0, false),
+            self.context
+                .i32_type()
+                .const_int(TypeTag::U64 as u64, false),
+            arguments,
+            typestore.get_slot(257, &builder),
+        );
+
         let mut result = None;
         for instruction in bytecode.instructions {
             result = Some(self.build_expression(instruction, &builder));
@@ -91,6 +118,7 @@ impl<'ctx> CodeGen<'ctx> {
             builder.build_return(None).unwrap();
         }
 
+        module.print_to_stderr();
         module.verify().unwrap();
 
         let execution_engine =
