@@ -1,6 +1,7 @@
 mod builtins;
 mod context;
 mod context_ergonomics;
+mod llvm_struct;
 mod types;
 mod typestore;
 

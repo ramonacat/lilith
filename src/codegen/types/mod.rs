@@ -1,3 +1,6 @@
+pub(in crate::codegen) mod functions;
+
+use functions::FunctionArgumentProvider;
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -56,16 +59,6 @@ pub(super) fn register(context: &Context) -> Types {
         ],
     );
 
-    let function_argument_type = context.named_struct(
-        "FunctionArgument",
-        &[
-            // name (interned)
-            context.i32(),
-            // typeid
-            context.i32(),
-        ],
-    );
-
     let function_signature_type = context.named_struct(
         "FunctionSignature",
         &[
@@ -83,7 +76,7 @@ pub(super) fn register(context: &Context) -> Types {
     Types {
         context,
         value_type,
-        function_argument_type,
+        function_argument_type: FunctionArgumentProvider::register(context),
         function_signature_type,
     }
 }
@@ -91,7 +84,7 @@ pub(super) fn register(context: &Context) -> Types {
 pub(super) struct Types<'ctx> {
     context: &'ctx Context,
     value_type: StructType<'ctx>,
-    function_argument_type: StructType<'ctx>,
+    function_argument_type: FunctionArgumentProvider<'ctx>,
     function_signature_type: StructType<'ctx>,
 }
 
@@ -144,18 +137,11 @@ impl<'ctx> Types<'ctx> {
         builder: &Builder<'ctx>,
         argument: &ArgumentType<'ctx>,
     ) {
-        let gep_name = builder
-            .build_struct_gep(self.function_argument_type, target, 0, "name")
-            .unwrap();
-        let gep_type_id = builder
-            .build_struct_gep(self.function_argument_type, target, 1, "type_id")
-            .unwrap();
-
-        assert!(argument.name.get_type().get_bit_width() == 32);
-        assert!(argument.type_id.get_type().get_bit_width() == 32);
-
-        builder.build_store(gep_name, argument.name).unwrap();
-        builder.build_store(gep_type_id, argument.type_id).unwrap();
+        self.function_argument_type.fill_in(
+            target,
+            &[argument.name.into(), argument.type_id.into()],
+            builder,
+        );
     }
 
     pub(super) fn make_function_arguments(
@@ -165,7 +151,7 @@ impl<'ctx> Types<'ctx> {
     ) -> PointerValue<'ctx> {
         let arguments_allocation = builder
             .build_array_malloc(
-                self.function_argument_type,
+                self.function_argument_type.llvm_type(),
                 self.context
                     .i32_type()
                     .const_int(arguments.len() as u64 + 1, false),
@@ -183,7 +169,7 @@ impl<'ctx> Types<'ctx> {
         {
             let argument_pointer = unsafe {
                 builder.build_gep(
-                    self.function_argument_type,
+                    self.function_argument_type.llvm_type(),
                     arguments_allocation,
                     &[self.context.i32_type().const_int(index as u64, false)],
                     "arguments",

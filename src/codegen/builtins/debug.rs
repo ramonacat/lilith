@@ -1,6 +1,9 @@
 use std::fmt::Write;
 
-use crate::codegen::{TypeTag, types::ClassId};
+use crate::codegen::{
+    TypeTag,
+    types::{ClassId, functions::FunctionArgument},
+};
 
 #[repr(C)]
 // TODO this should really be in crate::codegen::types, ideally somehow automagically synced with
@@ -19,14 +22,6 @@ pub(super) struct FunctionSignature {
     unused: u16,
     return_type_id: u32, // TODO Should be newtyped into TypeId or something
     arguments: *const FunctionArgument,
-}
-
-// TODO this should really be in crate::codegen::types, ideally somehow automagically synced with
-// the inkwell definition
-#[repr(C)]
-pub(super) struct FunctionArgument {
-    name: u32, // TODO this is an interned id of the name, we need actual support for interning tho
-    type_id: u32, // TODO we should've a newtype for that
 }
 
 impl std::fmt::Debug for Value {
