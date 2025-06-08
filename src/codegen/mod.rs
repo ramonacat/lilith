@@ -1,9 +1,12 @@
+mod builtins;
+mod context;
 mod context_ergonomics;
 mod types;
 mod typestore;
 
 use std::collections::HashMap;
 
+use context::CodegenContext;
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -80,16 +83,19 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn execute(mut self, bytecode: ByteCode) -> u64 {
         let module = self.context.create_module("main");
+        let execution_engine = module
+            .create_jit_execution_engine(inkwell::OptimizationLevel::Aggressive)
+            .unwrap();
         let main = module.add_function("main", self.context.i64_type().fn_type(&[], false), None);
         let builder = self.context.create_builder();
 
         let entry_block = self.context.append_basic_block(main, "entry");
         builder.position_at_end(entry_block);
 
-        let types = types::register(self.context);
-        let typestore = typestore::register(self.context, &builder, &module, &types);
+        let codegen_context = CodegenContext::new(self.context, &builder, &module);
+        builtins::register(&execution_engine, &module, &codegen_context);
 
-        let arguments = types.make_function_arguments(
+        let arguments = codegen_context.types().make_function_arguments(
             &builder,
             &[ArgumentType::new(
                 self.context.i32_type().const_int(1, false),
@@ -98,20 +104,31 @@ impl<'ctx> CodeGen<'ctx> {
                     .const_int(TypeTag::U64 as u64, false),
             )],
         );
-        types.make_function_signature(
+
+        let funcsig_slot = codegen_context.type_store().get_slot(257, &builder);
+
+        codegen_context.types().make_function_signature(
             &builder,
             self.context.i16_type().const_int(0, false),
             self.context
                 .i32_type()
                 .const_int(TypeTag::U64 as u64, false),
             arguments,
-            typestore.get_slot(257, &builder),
+            funcsig_slot,
         );
 
         let mut result = None;
         for instruction in bytecode.instructions {
             result = Some(self.build_expression(instruction, &builder));
         }
+
+        builder
+            .build_call(
+                module.get_function("debug_type_definition").unwrap(),
+                &[funcsig_slot.into()],
+                "type_definition_debug",
+            )
+            .unwrap();
         if let Some(result) = result {
             builder.build_return(Some(&result)).unwrap();
         } else {
@@ -121,11 +138,8 @@ impl<'ctx> CodeGen<'ctx> {
         module.print_to_stderr();
         module.verify().unwrap();
 
-        let execution_engine =
-            module.create_jit_execution_engine(inkwell::OptimizationLevel::Aggressive);
         let main = unsafe {
             execution_engine
-                .unwrap()
                 .get_function::<unsafe extern "C" fn() -> u64>("main")
                 .unwrap()
         };

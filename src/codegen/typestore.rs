@@ -1,15 +1,17 @@
-use inkwell::{builder::Builder, context::Context, module::Module, values::GlobalValue};
+use inkwell::{
+    builder::Builder, context::Context, module::Module, types::StructType, values::GlobalValue,
+};
 
 use super::types::Types;
 
 const PREDEFINED_TYPES_COUNT: u32 = 256;
 
-pub(super) fn register<'ctx, 'types>(
+pub(super) fn register<'ctx>(
     context: &'ctx Context,
     builder: &Builder<'ctx>,
     module: &Module<'ctx>,
-    types: &'types Types<'ctx>,
-) -> TypeStore<'ctx, 'types> {
+    types: &Types<'ctx>,
+) -> TypeStore<'ctx> {
     let types_global_type = types
         .value()
         // TODO this really should be dynamic, but for prototyping 256 predefined + 256 complex
@@ -28,16 +30,17 @@ pub(super) fn register<'ctx, 'types>(
     TypeStore {
         store: types_global,
         context,
-        types,
+        value_type: types.value(),
     }
 }
-pub(super) struct TypeStore<'ctx, 'types> {
+pub(super) struct TypeStore<'ctx> {
     context: &'ctx Context,
-    types: &'types Types<'ctx>,
     store: GlobalValue<'ctx>,
+    value_type: StructType<'ctx>,
 }
 
-impl<'ctx> TypeStore<'ctx, '_> {
+impl<'ctx> TypeStore<'ctx> {
+    // TODO this method should not exist, we should just have "next_slot" for adding types and "slot_by_id" for retreiving them
     pub(crate) fn get_slot(
         &self,
         arg: u64,
@@ -53,7 +56,7 @@ impl<'ctx> TypeStore<'ctx, '_> {
     ) -> inkwell::values::PointerValue<'ctx> {
         unsafe {
             builder.build_gep(
-                self.types.value(),
+                self.value_type,
                 self.store.as_pointer_value(),
                 &[self.context.i32_type().const_int(index, false)],
                 "type",

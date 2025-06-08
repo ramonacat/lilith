@@ -19,12 +19,24 @@ impl ClassId {
 }
 
 #[repr(u8)]
+#[derive(Debug)]
 pub(super) enum TypeTag {
-    Primitive,
+    Primitive = 0,
 
-    U64,
+    U64 = 16,
 
-    FunctionSignature,
+    FunctionSignature = 128,
+}
+
+impl TypeTag {
+    pub const fn from_value(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(Self::Primitive),
+            16 => Some(Self::U64),
+            128 => Some(Self::FunctionSignature),
+            _ => None,
+        }
+    }
 }
 
 pub(super) fn register(context: &Context) -> Types {
@@ -126,6 +138,26 @@ impl<'ctx> Types<'ctx> {
         );
     }
 
+    pub(super) fn make_function_argument(
+        &self,
+        target: PointerValue<'ctx>,
+        builder: &Builder<'ctx>,
+        argument: &ArgumentType<'ctx>,
+    ) {
+        let gep_name = builder
+            .build_struct_gep(self.function_argument_type, target, 0, "name")
+            .unwrap();
+        let gep_type_id = builder
+            .build_struct_gep(self.function_argument_type, target, 1, "type_id")
+            .unwrap();
+
+        assert!(argument.name.get_type().get_bit_width() == 32);
+        assert!(argument.type_id.get_type().get_bit_width() == 32);
+
+        builder.build_store(gep_name, argument.name).unwrap();
+        builder.build_store(gep_type_id, argument.type_id).unwrap();
+    }
+
     pub(super) fn make_function_arguments(
         &self,
         builder: &Builder<'ctx>,
@@ -136,43 +168,30 @@ impl<'ctx> Types<'ctx> {
                 self.function_argument_type,
                 self.context
                     .i32_type()
-                    .const_int(arguments.len() as u64, false),
+                    .const_int(arguments.len() as u64 + 1, false),
                 "arguments",
             )
             .unwrap();
 
-        for (index, argument) in arguments.iter().enumerate() {
-            let gep_name = unsafe {
+        for (index, argument) in arguments
+            .iter()
+            .chain(&[ArgumentType::new(
+                self.context.i32_type().const_int(0, false),
+                self.context.i32_type().const_int(0, false),
+            )])
+            .enumerate()
+        {
+            let argument_pointer = unsafe {
                 builder.build_gep(
                     self.function_argument_type,
                     arguments_allocation,
-                    &[
-                        self.context.i32_type().const_int(index as u64, false),
-                        self.context.i32_type().const_int(0, false),
-                    ],
-                    "argument_name",
+                    &[self.context.i32_type().const_int(index as u64, false)],
+                    "arguments",
                 )
             }
             .unwrap();
 
-            let gep_type_id = unsafe {
-                builder.build_gep(
-                    self.function_argument_type,
-                    arguments_allocation,
-                    &[
-                        self.context.i32_type().const_int(index as u64, false),
-                        self.context.i32_type().const_int(1, false),
-                    ],
-                    "argument_type_id",
-                )
-            }
-            .unwrap();
-
-            assert!(argument.name.get_type().get_bit_width() == 32);
-            assert!(argument.type_id.get_type().get_bit_width() == 32);
-
-            builder.build_store(gep_name, argument.name).unwrap();
-            builder.build_store(gep_type_id, argument.type_id).unwrap();
+            self.make_function_argument(argument_pointer, builder, argument);
         }
 
         arguments_allocation
@@ -202,6 +221,7 @@ impl<'ctx> Types<'ctx> {
         let unused_gep = builder
             .build_struct_gep(self.function_signature_type, signature_ptr, 1, "unused")
             .unwrap();
+
         builder
             .build_store(unused_gep, self.context.i16_type().const_int(0, false))
             .unwrap();
@@ -217,7 +237,7 @@ impl<'ctx> Types<'ctx> {
         builder.build_store(return_type_gep, return_type).unwrap();
 
         let arguments_gep = builder
-            .build_struct_gep(self.function_signature_type, signature_ptr, 2, "arguments")
+            .build_struct_gep(self.function_signature_type, signature_ptr, 3, "arguments")
             .unwrap();
         builder.build_store(arguments_gep, arguments).unwrap();
 
@@ -281,8 +301,6 @@ impl<'ctx> Types<'ctx> {
         let value_gep = builder
             .build_struct_gep(self.value_type, target, 4, "value")
             .unwrap();
-        builder
-            .build_store(value_gep, self.context.i32_type().const_zero())
-            .unwrap();
+        builder.build_store(value_gep, value).unwrap();
     }
 }
