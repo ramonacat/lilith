@@ -3,7 +3,8 @@ pub(in crate::codegen) mod context;
 pub(in crate::codegen) mod context_ergonomics;
 #[macro_use]
 pub(in crate::codegen) mod llvm_struct;
-mod type_store;
+pub(in crate::codegen) mod module;
+pub(in crate::codegen) mod type_store;
 pub(in crate::codegen) mod types;
 pub(in crate::codegen) mod typestore;
 
@@ -105,6 +106,8 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn execute(mut self, bytecode: ByteCode) -> u64 {
+        // TODO the main module should also use the api from crate::codegen::module, instead of
+        // straight up calling the inkwell apis
         let module = self.context.create_module("main");
         let execution_engine = module
             .create_jit_execution_engine(inkwell::OptimizationLevel::Aggressive)
@@ -165,8 +168,10 @@ impl<'ctx> CodeGen<'ctx> {
         module.print_to_stderr();
         module.verify().unwrap();
 
+        // TODO this module should actually get linked into the final app/library
         let _type_store_module = type_store::register(&codegen_context);
 
+        // TODO execute global ctors and dtors before/after the actual program execution
         let main = unsafe {
             execution_engine
                 .get_function::<unsafe extern "C" fn() -> u64>("main")

@@ -1,22 +1,11 @@
-use inkwell::{
-    module::{Linkage, Module},
-    values::PointerValue,
-};
+use inkwell::{module::Module, values::PointerValue};
 
-use super::context::CodegenContext;
+use super::{context::CodegenContext, module};
 use crate::codegen::{
     context_ergonomics::ContextErgonomics,
     llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
     types::value::Value,
 };
-
-llvm_struct! {
-    struct GlobalConstructor {
-        priority: u32,
-        target: *const fn(),
-        initialized_value: Option<*const ()>
-    }
-}
 
 // TODO This is good enough for a prototype, but should really be replaced with a hashtable of some
 // sorts, because otherwise finding a type will require a linear scan
@@ -55,15 +44,19 @@ impl<'ctx> TypeStoreModule<'ctx> {
     // TODO we should actually expose an interface here that will allow registering type
     // definitions
     fn new(codegen_context: &CodegenContext<'ctx>) -> Self {
+        // TODO this should be a part of codegen_context prolly?
+        let module_builder_provider = module::register(codegen_context);
+        let mut module_builder = module_builder_provider.make_builder("type_store");
         let type_store_provider = TypeStoreProvider::register(codegen_context.llvm_context());
-        let global_constructor_provider =
-            GlobalConstructorProvider::register(codegen_context.llvm_context());
 
-        let module = codegen_context.llvm_context().create_module("type_store");
-        let type_store = module.add_global(type_store_provider.llvm_type(), None, "type_store");
+        let type_store =
+            module_builder
+                .module
+                .add_global(type_store_provider.llvm_type(), None, "type_store");
         type_store.set_initializer(&type_store_provider.llvm_type().const_zero());
 
-        let type_store_initializer = module.add_function(
+        // TODO this function probably would be more useful if it had any implementation
+        let type_store_initializer = module_builder.module.add_function(
             "type_store_initializer",
             codegen_context
                 .llvm_context()
@@ -72,28 +65,16 @@ impl<'ctx> TypeStoreModule<'ctx> {
             None,
         );
 
-        let global_constructors_array_type = global_constructor_provider.llvm_type().array_type(1);
-        let global_constructors =
-            module.add_global(global_constructors_array_type, None, "llvm.global_ctors");
-        global_constructors.set_linkage(Linkage::Appending);
-        global_constructors.set_initializer(
-            &global_constructor_provider
-                .llvm_type()
-                .const_array(&[global_constructor_provider
-                    .llvm_type()
-                    .const_named_struct(&[
-                        codegen_context
-                            .llvm_context()
-                            .i32_type()
-                            .const_zero()
-                            .into(),
-                        type_store_initializer
-                            .as_global_value()
-                            .as_pointer_value()
-                            .into(),
-                        type_store.as_pointer_value().into(),
-                    ])]),
-        );
+        module_builder.add_global_constructor((
+            codegen_context
+                .llvm_context()
+                .i32_type()
+                .const_int(0, false),
+            type_store_initializer.as_global_value().as_pointer_value(),
+            type_store.as_pointer_value(),
+        ));
+
+        let module = module_builder.build();
 
         module.print_to_stderr();
         module.verify().unwrap();

@@ -69,6 +69,8 @@ macro_rules! llvm_struct {
 
         paste::paste! {
             #[derive(Debug, Clone, Copy)]
+            // TODO Opaque should be called OpaquePointer, and there should be a separate Opaque
+            // struct, which contains the IntValue, PointerValue, etc. values
             pub(in $crate::codegen) struct [<$name Opaque>]<'ctx> {
                 pointer: inkwell::values::PointerValue<'ctx>,
                 context: &'ctx inkwell::context::Context,
