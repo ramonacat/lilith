@@ -1,5 +1,6 @@
 #![deny(clippy::all, clippy::pedantic, clippy::nursery, warnings)]
 mod bytecode;
+#[macro_use]
 mod codegen;
 mod types;
 use bytecode::ByteCode;

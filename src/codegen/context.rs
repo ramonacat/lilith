@@ -1,6 +1,9 @@
 use inkwell::{builder::Builder, context::Context, module::Module};
 
-use super::{types::Types, typestore::TypeStore};
+use super::{
+    types::{Types, ValueTypes, functions::FunctionTypes, primitive::PrimitiveTypes},
+    typestore::TypeStore,
+};
 
 pub struct CodegenContext<'ctx> {
     llvm_context: &'ctx Context,
@@ -13,8 +16,12 @@ impl<'ctx> CodegenContext<'ctx> {
         self.llvm_context
     }
 
-    pub(crate) const fn types(&self) -> &Types<'ctx> {
-        &self.types
+    pub(crate) const fn function_types(&self) -> &FunctionTypes<'ctx> {
+        self.types.function()
+    }
+
+    pub(crate) const fn primitive_types(&self) -> &PrimitiveTypes<'ctx> {
+        self.types.primitive()
     }
 
     // TODO we should not take neither the builder nor module here, but instead generate a module
@@ -37,5 +44,9 @@ impl<'ctx> CodegenContext<'ctx> {
 
     pub(crate) const fn type_store(&self) -> &TypeStore<'ctx> {
         &self.type_store
+    }
+
+    pub(crate) const fn value_types(&self) -> &ValueTypes<'ctx> {
+        self.types.value()
     }
 }

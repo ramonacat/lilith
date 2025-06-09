@@ -1,6 +1,7 @@
 pub(in crate::codegen) mod builtins;
 pub(in crate::codegen) mod context;
 pub(in crate::codegen) mod context_ergonomics;
+#[macro_use]
 pub(in crate::codegen) mod llvm_struct;
 pub(in crate::codegen) mod types;
 pub(in crate::codegen) mod typestore;
@@ -8,22 +9,32 @@ pub(in crate::codegen) mod typestore;
 use std::collections::HashMap;
 
 use context::CodegenContext;
-use inkwell::{
-    builder::Builder,
-    context::Context,
-    values::{BasicValueEnum, IntValue},
-};
-use types::{ArgumentType, TypeTag};
+use inkwell::{builder::Builder, context::Context, values::PointerValue};
+use types::value::TypeTag;
 
 use crate::{
     bytecode::{ByteCode, Expression, ResultId},
+    codegen::types::functions::ArgumentType,
     types::{ConstValue, Value},
 };
 
 impl<'ctx> ConstValue {
-    fn to_llvm(&self, context: &'ctx Context) -> IntValue<'ctx> {
+    fn to_llvm(
+        &self,
+        builder: &Builder<'ctx>,
+        codegen_context: &CodegenContext<'ctx>,
+    ) -> PointerValue<'ctx> {
         match self {
-            Self::U64(value) => context.i64_type().const_int(*value, false),
+            Self::U64(value) => {
+                let target = builder
+                    .build_alloca(codegen_context.value_types().llvm_type(), "literal")
+                    .unwrap();
+                codegen_context
+                    .primitive_types()
+                    .make_const_u64(*value, builder, target);
+
+                target
+            }
         }
     }
 }
@@ -32,11 +43,12 @@ impl<'ctx> Value {
     // TODO this API is kinda silly, it might make more sense to make this a part of CodeGen
     fn to_llvm(
         &self,
-        context: &'ctx Context,
-        scope: &HashMap<ResultId, BasicValueEnum<'ctx>>,
-    ) -> BasicValueEnum<'ctx> {
+        scope: &HashMap<ResultId, PointerValue<'ctx>>,
+        codegen_context: &CodegenContext<'ctx>,
+        builder: &Builder<'ctx>,
+    ) -> PointerValue<'ctx> {
         match self {
-            Self::Const(const_value) => const_value.to_llvm(context).into(),
+            Self::Const(value) => value.to_llvm(builder, codegen_context),
             Self::Opaque(id) => *scope.get(id).unwrap(),
         }
     }
@@ -44,7 +56,7 @@ impl<'ctx> Value {
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
-    scope: HashMap<ResultId, BasicValueEnum<'ctx>>,
+    scope: HashMap<ResultId, PointerValue<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -59,23 +71,34 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         expression: Expression,
         builder: &Builder<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
+        codegen_context: &CodegenContext<'ctx>,
+    ) -> PointerValue<'ctx> {
         match expression {
-            Expression::Literal(value) => value.to_llvm(self.context).into(),
+            Expression::Literal(value) => value.to_llvm(builder, codegen_context),
             Expression::Add(left, right) => {
-                // TODO ideally there should be some smart logic here that decides whether to
-                // compile the addition or to bail out with an error on type mismatch
-                builder
-                    .build_int_add(
-                        left.to_llvm(self.context, &self.scope).into_int_value(),
-                        right.to_llvm(self.context, &self.scope).into_int_value(),
-                        "sum",
-                    )
-                    .unwrap()
-                    .into()
+                // TODO we should check if either of the values implements an interface that allows
+                // for the desired addition and execute on it, otherwise throw an error
+                let left = left.to_llvm(&self.scope, codegen_context, builder);
+                let left = codegen_context.value_types().opaque(left).get_raw(builder);
+
+                let right = right.to_llvm(&self.scope, codegen_context, builder);
+                let right = codegen_context.value_types().opaque(right).get_raw(builder);
+
+                let result_value = builder
+                    .build_int_add(left.into_int_value(), right.into_int_value(), "sum_value")
+                    .unwrap();
+
+                let result = builder
+                    .build_alloca(codegen_context.value_types().llvm_type(), "sum")
+                    .unwrap();
+                codegen_context
+                    .primitive_types()
+                    .make_u64(result_value, builder, result);
+
+                result
             }
             Expression::Assignment(scope_path, expression) => {
-                let expression = self.build_expression(*expression, builder);
+                let expression = self.build_expression(*expression, builder, codegen_context);
                 self.scope.insert(ResultId(scope_path), expression);
                 expression
             }
@@ -96,7 +119,7 @@ impl<'ctx> CodeGen<'ctx> {
         let codegen_context = CodegenContext::new(self.context, &builder, &module);
         builtins::register(&execution_engine, &module, &codegen_context);
 
-        let arguments = codegen_context.types().make_function_arguments(
+        let arguments = codegen_context.function_types().make_function_arguments(
             &builder,
             &[ArgumentType::new(
                 self.context.i32_type().const_int(1, false),
@@ -108,7 +131,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let funcsig_slot = codegen_context.type_store().get_slot(257, &builder);
 
-        codegen_context.types().make_function_signature(
+        codegen_context.function_types().make_function_signature(
             &builder,
             self.context.i16_type().const_int(0, false),
             self.context
@@ -120,7 +143,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let mut result = None;
         for instruction in bytecode.instructions {
-            result = Some(self.build_expression(instruction, &builder));
+            result = Some(self.build_expression(instruction, &builder, &codegen_context));
         }
 
         builder
@@ -131,6 +154,10 @@ impl<'ctx> CodeGen<'ctx> {
             )
             .unwrap();
         if let Some(result) = result {
+            let result = codegen_context
+                .value_types()
+                .opaque(result)
+                .get_raw(&builder);
             builder.build_return(Some(&result)).unwrap();
         } else {
             builder.build_return(None).unwrap();
