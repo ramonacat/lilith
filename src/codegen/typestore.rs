@@ -1,3 +1,4 @@
+// TODO this should all get nuked in favour of the new API in type_store/mod.rs
 use inkwell::{
     builder::Builder, context::Context, module::Module, types::StructType, values::GlobalValue,
 };
@@ -15,8 +16,6 @@ pub(super) fn register<'ctx>(
     let types_global_type = types
         .value()
         .llvm_type()
-        // TODO this really should be dynamic, but for prototyping 256 predefined + 256 complex
-        // types should be fine
         .array_type(PREDEFINED_TYPES_COUNT + 256);
     let types_global = module.add_global(
         // The first 256 are predefined types (primitives, etc.)
@@ -34,6 +33,7 @@ pub(super) fn register<'ctx>(
         value_type: types.value().llvm_type(),
     }
 }
+
 pub(super) struct TypeStore<'ctx> {
     context: &'ctx Context,
     store: GlobalValue<'ctx>,
@@ -41,7 +41,6 @@ pub(super) struct TypeStore<'ctx> {
 }
 
 impl<'ctx> TypeStore<'ctx> {
-    // TODO this method should not exist, we should just have "next_slot" for adding types and "slot_by_id" for retreiving them
     pub(crate) fn get_slot(
         &self,
         arg: u64,

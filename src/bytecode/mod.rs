@@ -1,5 +1,3 @@
-// TODO for now this is just an ID, since we don't really have a concept of scope, but this'll have
-// to differentiate between modules/classes/methods/closures/etc.
 use crate::types::{ConstValue, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
