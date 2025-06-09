@@ -1,55 +1,89 @@
-use inkwell::{context::Context, types::BasicTypeEnum};
+use inkwell::{
+    AddressSpace,
+    context::Context,
+    types::{BasicType, IntType, PointerType},
+    values::{BasicValue, IntValue, PointerValue},
+};
 
-use crate::codegen::{TypeTag, context_ergonomics::ContextErgonomics as _, types::ClassId};
+use crate::codegen::{TypeTag, types::ClassId};
 
 pub(in crate::codegen) trait LlvmRepresentation<'ctx> {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx>;
+    type LlvmValue: BasicValue<'ctx>;
+    type LlvmType: BasicType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType;
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for u8 {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.i8()
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i8_type()
     }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for u16 {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.i16()
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i16_type()
     }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for u32 {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.i32()
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i32_type()
     }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for u64 {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.i64()
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i64_type()
     }
 }
 
 impl<'ctx, T> LlvmRepresentation<'ctx> for *const T {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.ptr()
+    type LlvmValue = PointerValue<'ctx>;
+    type LlvmType = PointerType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        // TODO do we want separate address spaces for code & data for archs where it matters? any
+        // other reasons to have more than default?
+        context.ptr_type(AddressSpace::default())
     }
 }
 
 impl<'ctx, T> LlvmRepresentation<'ctx> for Option<*const T> {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.ptr()
+    type LlvmValue = PointerValue<'ctx>;
+    type LlvmType = PointerType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.ptr_type(AddressSpace::default())
     }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for TypeTag {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.i8()
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i8_type()
     }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for ClassId {
-    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
-        context.i16()
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i16_type()
     }
 }

@@ -1,4 +1,5 @@
-pub(super) mod representations;
+pub(in crate::codegen) mod basic_value_enum;
+pub(in crate::codegen) mod representations;
 
 #[macro_export]
 macro_rules! get_field_inner {
@@ -6,11 +7,9 @@ macro_rules! get_field_inner {
         paste::paste! {
             #[allow(unused)]
             pub fn [<get_ $field_name>](
-                &self,
+                self,
                 builder: &inkwell::builder::Builder<'ctx>
-                // TODO is there any way we can get a more precise type here? maybe some magic with
-                // associated types in LlvmRepresentation?
-            ) -> inkwell::values::BasicValueEnum<'ctx> {
+            ) -> <$field_type as LlvmRepresentation<'ctx>>::LlvmValue {
                 let struct_gep = builder.build_struct_gep(
                     self.llvm_type,
                     self.pointer,
@@ -18,13 +17,14 @@ macro_rules! get_field_inner {
                     "field_gep"
                 ).unwrap();
 
-                builder.build_load(
-                    <$field_type>::llvm_type(self.context),
-                    struct_gep,
-                    "field"
-                )
-                .unwrap()
-                .into()
+                (
+                    builder.build_load(
+                        <$field_type>::llvm_type(self.context),
+                        struct_gep,
+                        "field"
+                    )
+                    .unwrap()
+                ).into_value()
             }
         }
     };
@@ -59,8 +59,11 @@ macro_rules! llvm_struct {
         }
 
         impl<'ctx> LlvmRepresentation<'ctx> for $name {
-            fn llvm_type(context: &'ctx inkwell::context::Context) -> inkwell::types::BasicTypeEnum<'ctx> {
-                context.get_struct_type(stringify!($name)).unwrap().into()
+            type LlvmType = inkwell::types::StructType<'ctx>;
+            type LlvmValue = inkwell::values::StructValue<'ctx>;
+
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
+                context.get_struct_type(stringify!($name)).unwrap()
             }
         }
 
@@ -97,7 +100,7 @@ macro_rules! llvm_struct {
             impl<'ctx> [<$name Provider>]<'ctx> {
                 pub(in $crate::codegen) fn register(context: &'ctx inkwell::context::Context) -> Self {
                     let llvm_type = context.named_struct(stringify!($name), &[
-                        $(<$field_type>::llvm_type(context)),+
+                        $(<$field_type>::llvm_type(context).into()),+
                     ]);
                     Self { llvm_type, context }
                 }

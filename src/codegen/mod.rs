@@ -85,9 +85,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let right = right.to_llvm(&self.scope, codegen_context, builder);
                 let right = codegen_context.value_types().opaque(right).get_raw(builder);
 
-                let result_value = builder
-                    .build_int_add(left.into_int_value(), right.into_int_value(), "sum_value")
-                    .unwrap();
+                let result_value = builder.build_int_add(left, right, "sum_value").unwrap();
 
                 let result = builder
                     .build_alloca(codegen_context.value_types().llvm_type(), "sum")

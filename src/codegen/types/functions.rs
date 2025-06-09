@@ -7,7 +7,8 @@ use inkwell::{
 use super::{TypeTag, ValueTypes};
 use crate::{
     codegen::{
-        context_ergonomics::ContextErgonomics, llvm_struct::representations::LlvmRepresentation,
+        context_ergonomics::ContextErgonomics,
+        llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
         types::ClassId,
     },
     llvm_struct,
