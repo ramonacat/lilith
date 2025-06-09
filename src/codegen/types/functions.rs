@@ -65,11 +65,8 @@ impl<'ctx> FunctionTypes<'ctx> {
         builder: &Builder<'ctx>,
         argument: &ArgumentType<'ctx>,
     ) {
-        self.function_argument_type.fill_in(
-            target,
-            &[argument.name.into(), argument.type_id.into()],
-            builder,
-        );
+        self.function_argument_type
+            .fill_in(target, builder, argument.name, argument.type_id);
     }
 
     // TODO should this actually take the target memory as an argument, like all the other make_*
@@ -127,13 +124,11 @@ impl<'ctx> FunctionTypes<'ctx> {
 
         self.function_signature_type.fill_in(
             signature_ptr,
-            &[
-                class_id.into(),
-                self.context.i16_type().const_zero().into(),
-                return_type.into(),
-                arguments.into(),
-            ],
             builder,
+            class_id,
+            self.context.i16_type().const_zero(),
+            return_type,
+            arguments,
         );
 
         let signature_u64 = builder

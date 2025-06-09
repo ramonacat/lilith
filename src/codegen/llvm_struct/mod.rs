@@ -110,26 +110,30 @@ macro_rules! llvm_struct {
                     [<$name Opaque>]::new(pointer, self.context, self.llvm_type)
                 }
 
+                #[allow(clippy::too_many_arguments)]
                 pub(in $crate::codegen) fn fill_in(
                     &self,
                     target: inkwell::values::PointerValue<'ctx>,
-                    fields: &[inkwell::values::BasicValueEnum<'ctx>],
                     builder: &inkwell::builder::Builder<'ctx>,
+                    $($field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
                 ) {
-                    assert!(fields.len() == self.llvm_type.count_fields() as usize);
+                    let mut index:u32 = 0;
 
-                    for (index, value) in fields.iter().enumerate() {
+                    $({
                         let field_gep = builder
                             .build_struct_gep(
                                 self.llvm_type,
                                 target,
-                                u32::try_from(index).unwrap(),
+                                index,
                                 "field_gep"
                             )
                             .unwrap();
 
-                        builder.build_store(field_gep, *value).unwrap();
-                    }
+                        builder.build_store(field_gep, $field_name).unwrap();
+
+                        // TODO should we make this comptime by using macro recursion tricks?
+                        index += 1;
+                    })+
                 }
 
                 pub(in $crate::codegen) const fn llvm_type(&self) -> inkwell::types::StructType<'ctx> {

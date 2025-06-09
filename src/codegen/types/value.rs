@@ -63,14 +63,12 @@ impl<'ctx> ValueTypes<'ctx> {
     ) {
         self.value_type.fill_in(
             target,
-            &[
-                type_tag.into(),
-                self.context.i8_type().const_zero().into(),
-                class_id.into(),
-                self.context.i32_type().const_zero().into(),
-                value.into(),
-            ],
             builder,
+            type_tag,
+            self.context.i8_type().const_zero(),
+            class_id,
+            self.context.i32_type().const_zero(),
+            value,
         );
     }
 }
