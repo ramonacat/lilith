@@ -36,6 +36,12 @@ impl<'ctx, T> LlvmRepresentation<'ctx> for *const T {
     }
 }
 
+impl<'ctx, T> LlvmRepresentation<'ctx> for Option<*const T> {
+    fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
+        context.ptr()
+    }
+}
+
 impl<'ctx> LlvmRepresentation<'ctx> for TypeTag {
     fn llvm_type(context: &'ctx Context) -> BasicTypeEnum<'ctx> {
         context.i8()

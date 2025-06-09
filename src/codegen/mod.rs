@@ -3,6 +3,7 @@ pub(in crate::codegen) mod context;
 pub(in crate::codegen) mod context_ergonomics;
 #[macro_use]
 pub(in crate::codegen) mod llvm_struct;
+mod type_store;
 pub(in crate::codegen) mod types;
 pub(in crate::codegen) mod typestore;
 
@@ -165,6 +166,8 @@ impl<'ctx> CodeGen<'ctx> {
 
         module.print_to_stderr();
         module.verify().unwrap();
+
+        let _type_store_module = type_store::register(&codegen_context);
 
         let main = unsafe {
             execution_engine

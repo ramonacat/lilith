@@ -71,6 +71,8 @@ impl<'ctx> FunctionTypes<'ctx> {
         );
     }
 
+    // TODO should this actually take the target memory as an argument, like all the other make_*
+    // methods?
     pub(in crate::codegen) fn make_function_arguments(
         &self,
         builder: &Builder<'ctx>,

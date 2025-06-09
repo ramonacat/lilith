@@ -61,8 +61,15 @@ macro_rules! get_field {
 macro_rules! llvm_struct {
     (struct $name:ident { $($field_name:ident: $field_type:ty),+ }) => {
         #[repr(C)]
+        #[allow(unused)]
         pub(in $crate::codegen) struct $name {
             $(pub(in $crate::codegen) $field_name: $field_type),+
+        }
+
+        impl<'ctx> LlvmRepresentation<'ctx> for $name {
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> inkwell::types::BasicTypeEnum<'ctx> {
+                context.get_struct_type(stringify!($name)).unwrap().into()
+            }
         }
 
         paste::paste! {
@@ -93,6 +100,8 @@ macro_rules! llvm_struct {
                 context: &'ctx inkwell::context::Context
             }
 
+            #[allow(unused)]
+            #[allow(unused)]
             impl<'ctx> [<$name Provider>]<'ctx> {
                 pub(in $crate::codegen) fn register(context: &'ctx inkwell::context::Context) -> Self {
                     let llvm_type = context.named_struct(stringify!($name), &[
