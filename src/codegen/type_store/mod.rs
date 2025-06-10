@@ -135,7 +135,6 @@ fn make_type_store_initializer<'ctx>(
             .const_int(0, false),
         capacity,
     );
-    // TODO actually initialize the type store...
     builder.build_return(None).unwrap();
 
     type_store_initializer

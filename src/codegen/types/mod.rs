@@ -32,7 +32,7 @@ pub(super) fn register(context: &Context) -> Types {
         context,
         value: value_types,
         function: FunctionTypes::new(context, value_types),
-        primitive: PrimitiveTypes::new(value_types, context),
+        primitive: PrimitiveTypes::new(value_types),
         types: TypesTypes::new(context),
     }
 }

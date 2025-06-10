@@ -1,15 +1,25 @@
-use crate::types::{ConstValue, Value};
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ScopePath(u64);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-// TODO the whole scopepath/resultid thing should be handled internally here, and be opaque for
-// codegen
-pub struct ResultId(pub ScopePath);
+pub struct Identifier(u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StackVariable(u64);
+
+#[derive(Clone, Copy)]
+pub enum ConstValue {
+    U64(u64),
+}
+
+pub enum Value {
+    Literal(ConstValue),
+    Local(Identifier),
+    Computed(Box<Expression>),
+}
 
 pub enum Expression {
-    Assignment(ScopePath, Box<Expression>),
-    Literal(ConstValue),
+    Assignment(Identifier, Value),
     Add(Value, Value),
 }
 
@@ -23,13 +33,14 @@ impl ByteCode {
     pub fn new() -> Self {
         Self {
             instructions: vec![
-                Expression::Assignment(
-                    ScopePath(1),
-                    Box::new(Expression::Literal(ConstValue::U64(4))),
-                ),
+                Expression::Assignment(Identifier(1), Value::Literal(ConstValue::U64(100))),
+                Expression::Assignment(Identifier(2), Value::Literal(ConstValue::U64(10))),
                 Expression::Add(
-                    Value::Const(ConstValue::U64(123)),
-                    Value::Opaque(ResultId(ScopePath(1))),
+                    Value::Literal(ConstValue::U64(1)),
+                    Value::Computed(Box::new(Expression::Add(
+                        Value::Local(Identifier(1)),
+                        Value::Local(Identifier(2)),
+                    ))),
                 ),
             ],
         }
