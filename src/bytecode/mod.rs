@@ -1,22 +1,12 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-// TODO should this be an Option<NonZeroU32>???
 pub struct Identifier(u32);
 
-impl Identifier {
-    pub(crate) const fn is_none(self) -> bool {
-        self.0 == 0
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-// TODO should this be an Option<NonZeroU32>???
+// TODO implement debug manually so that the first 256 values are treated as TypeTag, also ensure
+// this can only be constructed this way
 pub struct TypeId(u32);
-impl TypeId {
-    pub(crate) const fn is_none(self) -> bool {
-        self.0 == 0
-    }
-}
 
+// TODO is this used anywhere?
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StackVariable(u64);
 

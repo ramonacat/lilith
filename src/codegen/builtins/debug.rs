@@ -22,27 +22,20 @@ impl std::fmt::Debug for crate::codegen::types::value::Value {
                 let mut formatted_arguments = String::new();
 
                 let signature = self.raw as *const FunctionSignature;
-                let mut arguments = unsafe { &*signature }.arguments;
-                loop {
-                    let argument = unsafe { &*arguments };
-
-                    if argument.name.is_none() && argument.type_id.is_none() {
-                        break;
-                    }
+                let arguments = unsafe { &*signature }.arguments;
+                let argument_count = unsafe { &*signature }.argument_count;
+                for i in 0..argument_count {
+                    let argument = unsafe { &*arguments.add(usize::from(i)) };
 
                     write!(
                         formatted_arguments,
                         "({:?}, {:?}), ",
                         argument.name, argument.type_id
                     )?;
-
-                    unsafe {
-                        arguments = arguments.add(1);
-                    }
                 }
                 let return_type = unsafe { &*signature }.return_type_id;
 
-                write!(f, "fn({formatted_arguments}): {return_type}")
+                write!(f, "fn({formatted_arguments}): {return_type:?}")
             }
         }
     }
