@@ -1,7 +1,3 @@
-// TODO where is this used? do we still need it?
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ScopePath(u64);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // TODO should this be an Option<NonZeroU32>???
 pub struct Identifier(u32);
