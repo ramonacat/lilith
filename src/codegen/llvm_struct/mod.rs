@@ -62,6 +62,8 @@ macro_rules! llvm_struct {
             type LlvmType = inkwell::types::StructType<'ctx>;
             type LlvmValue = inkwell::values::StructValue<'ctx>;
 
+            fn assert_valid(_context: &'ctx inkwell::context::Context, _value: Self::LlvmValue) {}
+
             fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
                 context.get_struct_type(stringify!($name)).unwrap()
             }
@@ -137,8 +139,8 @@ macro_rules! llvm_struct {
                     let mut index:u32 = 0;
 
                     $({
-                        // TODO for IntType/IntValue add a check here ensuring the bit width is
-                        // correct
+                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(self.context, $field_name);
+
                         let field_gep = builder
                             .build_struct_gep(
                                 self.llvm_type,

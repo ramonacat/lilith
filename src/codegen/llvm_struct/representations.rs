@@ -12,6 +12,7 @@ pub(in crate::codegen) trait LlvmRepresentation<'ctx> {
     type LlvmType: BasicType<'ctx>;
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType;
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue);
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for u8 {
@@ -20,6 +21,10 @@ impl<'ctx> LlvmRepresentation<'ctx> for u8 {
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.i8_type()
+    }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
     }
 }
 
@@ -30,6 +35,10 @@ impl<'ctx> LlvmRepresentation<'ctx> for u16 {
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.i16_type()
     }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
+    }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for u32 {
@@ -39,6 +48,10 @@ impl<'ctx> LlvmRepresentation<'ctx> for u32 {
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.i32_type()
     }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
+    }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for u64 {
@@ -47,6 +60,10 @@ impl<'ctx> LlvmRepresentation<'ctx> for u64 {
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.i64_type()
+    }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
     }
 }
 
@@ -59,6 +76,8 @@ impl<'ctx, T> LlvmRepresentation<'ctx> for *const T {
         // other reasons to have more than default?
         context.ptr_type(AddressSpace::default())
     }
+
+    fn assert_valid(_context: &'ctx Context, _value: Self::LlvmValue) {}
 }
 
 impl<'ctx, T> LlvmRepresentation<'ctx> for Option<*const T> {
@@ -68,6 +87,8 @@ impl<'ctx, T> LlvmRepresentation<'ctx> for Option<*const T> {
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.ptr_type(AddressSpace::default())
     }
+
+    fn assert_valid(_context: &'ctx Context, _value: Self::LlvmValue) {}
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for TypeTag {
@@ -77,6 +98,10 @@ impl<'ctx> LlvmRepresentation<'ctx> for TypeTag {
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.i8_type()
     }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
+    }
 }
 
 impl<'ctx> LlvmRepresentation<'ctx> for ClassId {
@@ -85,5 +110,9 @@ impl<'ctx> LlvmRepresentation<'ctx> for ClassId {
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.i16_type()
+    }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
     }
 }
