@@ -1,6 +1,9 @@
-use inkwell::{builder::Builder, values::PointerValue};
+use inkwell::builder::Builder;
 
-use super::{ClassId, ValueTypes, value::TypeTag};
+use super::{
+    ClassId, ValueTypes,
+    value::{TypeTag, ValueOpaquePointer},
+};
 
 pub(in crate::codegen) struct PrimitiveTypes<'ctx> {
     value_types: ValueTypes<'ctx>,
@@ -15,8 +18,11 @@ impl<'ctx> PrimitiveTypes<'ctx> {
         &self,
         value: inkwell::values::IntValue<'ctx>,
         builder: &Builder<'ctx>,
-        target: PointerValue<'ctx>,
-    ) {
+    ) -> ValueOpaquePointer<'ctx> {
+        let target = builder
+            .build_malloc(self.value_types.llvm_type(), "target")
+            .unwrap();
+
         self.value_types.make_value(
             self.value_types.make_tag(TypeTag::U64),
             self.value_types.make_class_id(ClassId::none()),
@@ -24,5 +30,7 @@ impl<'ctx> PrimitiveTypes<'ctx> {
             builder,
             target,
         );
+
+        self.value_types.opaque_pointer(target)
     }
 }

@@ -51,18 +51,9 @@ impl<'ctx> CodeGen<'ctx> {
                     .build_int_add(left.get_raw(builder), right.get_raw(builder), "sum_value")
                     .unwrap();
 
-                // TODO this API is kinda back asswards, should we maybe just have an argument for
-                // make_u64 that decides if it's stack or malloc? or just never use stack and let
-                // LLVM do its thing and hope it optimizes well?
-                let result = builder
-                    .build_alloca(codegen_context.value_types().llvm_type(), "sum")
-                    .unwrap();
-
                 codegen_context
                     .primitive_types()
-                    .make_u64(result_value, builder, result);
-
-                codegen_context.value_types().opaque(result)
+                    .make_u64(result_value, builder)
             }
             Expression::Assignment(binding, value) => {
                 let expression = self.build_value(value, builder, codegen_context);
@@ -181,7 +172,7 @@ impl<'ctx> CodeGen<'ctx> {
                     target,
                 );
 
-                codegen_context.value_types().opaque(target)
+                codegen_context.value_types().opaque_pointer(target)
             }
             crate::bytecode::Value::Local(identifier) => {
                 // TODO check here that the var actually exists

@@ -48,7 +48,7 @@ impl<'ctx> ValueTypes<'ctx> {
         self.value_type.llvm_type()
     }
 
-    pub(crate) const fn opaque(
+    pub(crate) const fn opaque_pointer(
         &self,
         pointer: inkwell::values::PointerValue<'ctx>,
     ) -> ValueOpaquePointer<'ctx> {
