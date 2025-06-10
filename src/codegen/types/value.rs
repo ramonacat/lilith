@@ -5,6 +5,7 @@ use inkwell::{
 
 use super::ClassId;
 use crate::{
+    bytecode::TypeTag,
     codegen::{
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
@@ -20,27 +21,6 @@ llvm_struct! {
         class_id: ClassId,
         unused_1: u32,
         raw: u64
-    }
-}
-
-#[repr(u8)]
-#[derive(Debug)]
-pub(in crate::codegen) enum TypeTag {
-    Primitive = 0,
-
-    U64 = 16,
-
-    FunctionSignature = 128,
-}
-
-impl TypeTag {
-    pub(in crate::codegen) const fn from_value(value: u8) -> Option<Self> {
-        match value {
-            0 => Some(Self::Primitive),
-            16 => Some(Self::U64),
-            128 => Some(Self::FunctionSignature),
-            _ => None,
-        }
     }
 }
 

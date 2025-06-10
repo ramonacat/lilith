@@ -1,9 +1,7 @@
 use inkwell::builder::Builder;
 
-use super::{
-    ClassId, ValueTypes,
-    value::{TypeTag, ValueOpaquePointer},
-};
+use super::{ClassId, ValueTypes, value::ValueOpaquePointer};
+use crate::codegen::types::TypeTag;
 
 pub(in crate::codegen) struct PrimitiveTypes<'ctx> {
     value_types: ValueTypes<'ctx>,

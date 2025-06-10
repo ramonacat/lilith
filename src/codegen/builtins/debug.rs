@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
-use crate::codegen::{
-    TypeTag,
-    types::{functions::FunctionSignature, value::Value},
+use crate::{
+    bytecode::TypeTag,
+    codegen::types::{functions::FunctionSignature, value::Value},
 };
 
 impl std::fmt::Debug for crate::codegen::types::value::Value {

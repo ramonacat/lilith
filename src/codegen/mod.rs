@@ -12,10 +12,10 @@ use std::collections::HashMap;
 
 use context::CodegenContext;
 use inkwell::{builder::Builder, context::Context};
-use types::value::{TypeTag, ValueOpaquePointer};
+use types::value::ValueOpaquePointer;
 
 use crate::{
-    bytecode::{ByteCode, ConstValue, Expression, Identifier},
+    bytecode::{ByteCode, ConstValue, Expression, Identifier, TypeTag},
     codegen::types::functions::ArgumentType,
 };
 

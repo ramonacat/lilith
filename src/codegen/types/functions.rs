@@ -4,9 +4,9 @@ use inkwell::{
     values::{IntValue, PointerValue},
 };
 
-use super::{TypeTag, ValueTypes};
+use super::ValueTypes;
 use crate::{
-    bytecode::{Identifier, TypeId},
+    bytecode::{Identifier, TypeId, TypeTag},
     codegen::{
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},

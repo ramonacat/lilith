@@ -8,7 +8,9 @@ use functions::FunctionTypes;
 use inkwell::{builder::Builder, context::Context, types::StructType, values::GlobalValue};
 use primitive::PrimitiveTypes;
 use types::TypesTypes;
-use value::{TypeTag, ValueOpaquePointer, ValueProvider};
+use value::{ValueOpaquePointer, ValueProvider};
+
+use crate::bytecode::TypeTag;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]

@@ -1,10 +1,45 @@
+use std::fmt::Debug;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Identifier(u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-// TODO implement debug manually so that the first 256 values are treated as TypeTag, also ensure
-// this can only be constructed this way
+#[repr(u8)]
+#[derive(Debug)]
+pub enum TypeTag {
+    Primitive = 0,
+
+    U64 = 16,
+
+    FunctionSignature = 128,
+}
+
+impl TypeTag {
+    pub(crate) const fn from_value(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(Self::Primitive),
+            16 => Some(Self::U64),
+            128 => Some(Self::FunctionSignature),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+// TODO ensure this can only be constructed so that first 256 values represent TypeTag
+// TODO this might need to be converted into some more opaque concept, as some types have IDs that
+// only get created at runtime (otoh we can just convert the value, so no biggie?)
 pub struct TypeId(u32);
+
+impl Debug for TypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Ok(tag) = u8::try_from(self.0) {
+            write!(f, "TypeId({:?})", TypeTag::from_value(tag).unwrap())
+        } else {
+            write!(f, "TypeTag({})", self.0)
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub enum ConstValue {

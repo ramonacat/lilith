@@ -6,8 +6,8 @@ use inkwell::{
 };
 
 use crate::{
-    bytecode::{Identifier, TypeId},
-    codegen::{TypeTag, types::ClassId},
+    bytecode::{Identifier, TypeId, TypeTag},
+    codegen::types::ClassId,
 };
 
 // TODO we should probably have a macro here, because most of the impls are really just int
