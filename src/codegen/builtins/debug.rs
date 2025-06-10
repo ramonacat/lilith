@@ -26,13 +26,13 @@ impl std::fmt::Debug for crate::codegen::types::value::Value {
                 loop {
                     let argument = unsafe { &*arguments };
 
-                    if argument.name == 0 && argument.type_id == 0 {
+                    if argument.name.is_none() && argument.type_id.is_none() {
                         break;
                     }
 
                     write!(
                         formatted_arguments,
-                        "({}, {}), ",
+                        "({:?}, {:?}), ",
                         argument.name, argument.type_id
                     )?;
 

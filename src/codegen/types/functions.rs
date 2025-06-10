@@ -6,6 +6,7 @@ use inkwell::{
 
 use super::{TypeTag, ValueTypes};
 use crate::{
+    bytecode::{Identifier, TypeId},
     codegen::{
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
@@ -17,8 +18,8 @@ use crate::{
 // TODO both name and type_id should be newtyped into something better representing what they are
 llvm_struct! {
     struct FunctionArgument {
-        name: u32,
-        type_id: u32
+        name: Identifier,
+        type_id: TypeId
     }
 }
 

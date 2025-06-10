@@ -5,7 +5,13 @@ use inkwell::{
     values::{BasicValue, IntValue, PointerValue},
 };
 
-use crate::codegen::{TypeTag, types::ClassId};
+use crate::{
+    bytecode::{Identifier, TypeId},
+    codegen::{TypeTag, types::ClassId},
+};
+
+// TODO we should probably have a macro here, because most of the impls are really just int
+// representations of varying lengths and there's a lot of repeated code for that reason
 
 pub(in crate::codegen) trait LlvmRepresentation<'ctx> {
     type LlvmValue: BasicValue<'ctx>;
@@ -110,6 +116,32 @@ impl<'ctx> LlvmRepresentation<'ctx> for ClassId {
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
         context.i16_type()
+    }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
+    }
+}
+
+impl<'ctx> LlvmRepresentation<'ctx> for Identifier {
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i32_type()
+    }
+
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
+        assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
+    }
+}
+
+impl<'ctx> LlvmRepresentation<'ctx> for TypeId {
+    type LlvmValue = IntValue<'ctx>;
+    type LlvmType = IntType<'ctx>;
+
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType {
+        context.i32_type()
     }
 
     fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
