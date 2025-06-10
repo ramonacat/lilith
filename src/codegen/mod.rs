@@ -168,15 +168,16 @@ impl<'ctx> CodeGen<'ctx> {
         module.print_to_stderr();
         module.verify().unwrap();
 
-        // TODO this module should actually get linked into the final app/library
-        let _type_store_module = type_store::register(&codegen_context);
+        let type_store_module = type_store::register(&codegen_context);
+        module.link_in_module(type_store_module.build()).unwrap();
 
-        // TODO execute global ctors and dtors before/after the actual program execution
+        execution_engine.run_static_constructors();
         let main = unsafe {
             execution_engine
                 .get_function::<unsafe extern "C" fn() -> u64>("main")
                 .unwrap()
         };
+        execution_engine.run_static_destructors();
 
         unsafe { main.call() }
     }

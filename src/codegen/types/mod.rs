@@ -59,8 +59,6 @@ pub(super) struct Types<'ctx> {
     primitive: PrimitiveTypes<'ctx>,
 }
 
-// TODO instead of return straight up StructValues, should we do some newtyping to avoid type
-// confusion?
 impl<'ctx> Types<'ctx> {
     pub(super) const fn value(&self) -> &ValueTypes<'ctx> {
         &self.value

@@ -137,6 +137,8 @@ macro_rules! llvm_struct {
                     let mut index:u32 = 0;
 
                     $({
+                        // TODO for IntType/IntValue add a check here ensuring the bit width is
+                        // correct
                         let field_gep = builder
                             .build_struct_gep(
                                 self.llvm_type,
