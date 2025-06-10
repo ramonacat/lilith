@@ -39,8 +39,11 @@ impl<'ctx> ValueTypes<'ctx> {
         class_id: IntValue<'ctx>,
         value: IntValue<'ctx>,
         builder: &Builder<'ctx>,
-        target: PointerValue<'ctx>,
-    ) {
+    ) -> ValueOpaquePointer<'ctx> {
+        let target = builder
+            .build_malloc(self.value_type.llvm_type(), "target")
+            .unwrap();
+
         self.value_type.fill_in(
             target,
             builder,
@@ -50,5 +53,7 @@ impl<'ctx> ValueTypes<'ctx> {
             self.context.i32_type().const_zero(),
             value,
         );
+
+        self.value_type.opaque_pointer(target)
     }
 }

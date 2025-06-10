@@ -1,10 +1,11 @@
 use inkwell::{
     builder::Builder,
     context::Context,
+    types::StructType,
     values::{IntValue, PointerValue},
 };
 
-use super::ValueTypes;
+use super::{ValueTypes, value::ValueOpaquePointer};
 use crate::{
     bytecode::{Identifier, TypeId, TypeTag},
     codegen::{
@@ -15,7 +16,6 @@ use crate::{
     llvm_struct,
 };
 
-// TODO both name and type_id should be newtyped into something better representing what they are
 llvm_struct! {
     struct FunctionArgument {
         name: Identifier,
@@ -115,8 +115,7 @@ impl<'ctx> FunctionTypes<'ctx> {
         class_id: IntValue<'ctx>,
         return_type: IntValue<'ctx>,
         arguments: PointerValue<'ctx>,
-        target: PointerValue<'ctx>,
-    ) {
+    ) -> ValueOpaquePointer<'ctx> {
         let signature_ptr = builder
             .build_malloc(self.function_signature_type.llvm_type(), "signature_ptr")
             .unwrap();
@@ -139,7 +138,11 @@ impl<'ctx> FunctionTypes<'ctx> {
             self.basic.make_class_id(ClassId::none()),
             signature_u64,
             builder,
-            target,
-        );
+        )
+    }
+
+    // TODO this method is fucky hacky, get rid of it once the typestore situation is cleaned up
+    pub(crate) const fn signature_llvm_type(&self) -> StructType<'ctx> {
+        self.function_signature_type.llvm_type()
     }
 }

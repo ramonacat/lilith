@@ -8,7 +8,7 @@ use functions::FunctionTypes;
 use inkwell::{builder::Builder, context::Context, types::StructType, values::GlobalValue};
 use primitive::PrimitiveTypes;
 use types::TypesTypes;
-use value::{ValueOpaquePointer, ValueProvider};
+use value::ValueProvider;
 
 use crate::bytecode::TypeTag;
 
@@ -44,17 +44,11 @@ pub(super) struct ValueTypes<'ctx> {
     value_type: ValueProvider<'ctx>,
     context: &'ctx Context,
 }
+
 impl<'ctx> ValueTypes<'ctx> {
-    // TODO we should just get rid of this, and handle the cases where it's needed internally
+    // TODO this is fucky hacky for the old bad typestore
     pub(crate) const fn llvm_type(&self) -> StructType<'ctx> {
         self.value_type.llvm_type()
-    }
-
-    pub(crate) const fn opaque_pointer(
-        &self,
-        pointer: inkwell::values::PointerValue<'ctx>,
-    ) -> ValueOpaquePointer<'ctx> {
-        self.value_type.opaque_pointer(pointer)
     }
 }
 
@@ -87,15 +81,27 @@ impl<'ctx> Types<'ctx> {
         }
         .unwrap();
 
-        self.value.make_value(
+        let value = self.value.make_value(
             self.value.make_tag(TypeTag::Primitive),
             self.value.make_class_id(ClassId::none()),
             self.context
                 .i64_type()
                 .const_int(TypeTag::U64 as u64, false),
             builder,
-            gep,
         );
+
+        // TODO the alignments are pulled from my ass and idk if they're right, but it doesn't
+        // matter, bevause this will be replaced with codegen::type_store, and this code is fucky
+        // hacky
+        builder
+            .build_memmove(
+                gep,
+                8,
+                value.ptr(),
+                8,
+                self.value.value_type.llvm_type().size_of().unwrap(),
+            )
+            .unwrap();
     }
 
     pub(crate) const fn function(&self) -> &FunctionTypes<'ctx> {

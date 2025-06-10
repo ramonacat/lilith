@@ -89,17 +89,29 @@ impl<'ctx> CodeGen<'ctx> {
             )],
         );
 
-        let funcsig_slot = codegen_context.type_store().get_slot(257, &builder);
-
-        codegen_context.function_types().make_function_signature(
+        let signature = codegen_context.function_types().make_function_signature(
             &builder,
             self.context.i16_type().const_int(0, false),
             self.context
                 .i32_type()
                 .const_int(TypeTag::U64 as u64, false),
             arguments,
-            funcsig_slot,
         );
+
+        let funcsig_slot = codegen_context.type_store().get_slot(257, &builder);
+        builder
+            .build_memmove(
+                funcsig_slot,
+                8,
+                signature.ptr(),
+                8,
+                codegen_context
+                    .function_types()
+                    .signature_llvm_type()
+                    .size_of()
+                    .unwrap(),
+            )
+            .unwrap();
 
         let mut result = None;
         for instruction in bytecode.instructions {
@@ -148,11 +160,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> ValueOpaquePointer<'ctx> {
         match value {
             crate::bytecode::Value::Literal(const_value) => {
-                // TODO this really should be some comfy api that always mallocs (and lets LLVM
-                // handle optimizing it to use stack or whatever as needed)
-                let target = builder
-                    .build_alloca(codegen_context.value_types().llvm_type(), "value")
-                    .unwrap();
+                // TODO add some comfort methods for simple i*_type constants
                 codegen_context.value_types().make_value(
                     codegen_context
                         .llvm_context()
@@ -169,10 +177,7 @@ impl<'ctx> CodeGen<'ctx> {
                         false,
                     ),
                     builder,
-                    target,
-                );
-
-                codegen_context.value_types().opaque_pointer(target)
+                )
             }
             crate::bytecode::Value::Local(identifier) => {
                 // TODO check here that the var actually exists

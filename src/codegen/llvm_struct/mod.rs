@@ -89,8 +89,14 @@ macro_rules! llvm_struct {
                     context: &'ctx inkwell::context::Context,
                     llvm_type: inkwell::types::StructType<'ctx>,
                 ) -> Self {
-                        Self { pointer, context, llvm_type }
-                    }
+                    Self { pointer, context, llvm_type }
+                }
+
+                // TODO get rid of this method, this is a hack around the bad typestore impl
+                #[allow(unused)]
+                pub(in $crate::codegen) const fn ptr(&self) -> inkwell::values::PointerValue<'ctx> {
+                    self.pointer
+                }
 
                 $crate::get_field! { $($field_name: $field_type),* }
             }

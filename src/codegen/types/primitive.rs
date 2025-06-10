@@ -17,18 +17,11 @@ impl<'ctx> PrimitiveTypes<'ctx> {
         value: inkwell::values::IntValue<'ctx>,
         builder: &Builder<'ctx>,
     ) -> ValueOpaquePointer<'ctx> {
-        let target = builder
-            .build_malloc(self.value_types.llvm_type(), "target")
-            .unwrap();
-
         self.value_types.make_value(
             self.value_types.make_tag(TypeTag::U64),
             self.value_types.make_class_id(ClassId::none()),
             value,
             builder,
-            target,
-        );
-
-        self.value_types.opaque_pointer(target)
+        )
     }
 }
