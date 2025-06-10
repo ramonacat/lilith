@@ -6,10 +6,6 @@ pub struct Identifier(u32);
 // this can only be constructed this way
 pub struct TypeId(u32);
 
-// TODO is this used anywhere?
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct StackVariable(u64);
-
 #[derive(Clone, Copy)]
 pub enum ConstValue {
     U64(u64),
