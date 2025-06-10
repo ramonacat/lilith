@@ -1,8 +1,8 @@
 use inkwell::{
     context::Context,
     module::{Linkage, Module},
-    types::StructType,
-    values::{IntValue, PointerValue},
+    types::{BasicType, StructType},
+    values::{FunctionValue, GlobalValue, IntValue, PointerValue},
 };
 
 use super::context::CodegenContext;
@@ -44,9 +44,7 @@ impl<'ctx> ModuleBuilderProvider<'ctx> {
 }
 
 pub(in crate::codegen) struct ModuleBuilder<'ctx> {
-    // TODO instead of making this pub, shall we provide some cute API for adding globals and
-    // functions
-    pub(in crate::codegen) module: Module<'ctx>,
+    module: Module<'ctx>,
     global_constructors: Vec<GlobalConstructorType<'ctx>>,
     global_constructor_type: StructType<'ctx>,
 }
@@ -92,5 +90,20 @@ impl<'ctx> ModuleBuilder<'ctx> {
             .set_initializer(&global_constructor_type.const_array(&constructors));
 
         module
+    }
+
+    pub(crate) fn add_global(&self, r#type: impl BasicType<'ctx>, name: &str) -> GlobalValue<'ctx> {
+        self.module.add_global(r#type, None, name)
+    }
+
+    pub(crate) fn add_function(
+        &self,
+        name: &str,
+        signature: inkwell::types::FunctionType<'ctx>,
+        // TODO while we don't exactly want to expose the linkage, it might make sense to have some
+        // concept of "public", so that we can collect all the public signatures for import into
+        // another module
+    ) -> FunctionValue<'ctx> {
+        self.module.add_function(name, signature, None)
     }
 }

@@ -49,20 +49,16 @@ impl<'ctx> TypeStoreModule<'ctx> {
         let mut module_builder = module_builder_provider.make_builder("type_store");
         let type_store_provider = TypeStoreProvider::register(codegen_context.llvm_context());
 
-        let type_store =
-            module_builder
-                .module
-                .add_global(type_store_provider.llvm_type(), None, "type_store");
+        let type_store = module_builder.add_global(type_store_provider.llvm_type(), "type_store");
         type_store.set_initializer(&type_store_provider.llvm_type().const_zero());
 
         // TODO this function probably would be more useful if it had any implementation
-        let type_store_initializer = module_builder.module.add_function(
+        let type_store_initializer = module_builder.add_function(
             "type_store_initializer",
             codegen_context
                 .llvm_context()
                 .void_type()
                 .fn_type(&[], false),
-            None,
         );
 
         module_builder.add_global_constructor((
