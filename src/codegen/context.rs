@@ -4,10 +4,12 @@ use super::{
     types::{Types, ValueTypes, functions::FunctionTypes, primitive::PrimitiveTypes},
     typestore::TypeStore,
 };
+use crate::codegen::types::types::TypesTypes;
 
 pub struct CodegenContext<'ctx> {
     llvm_context: &'ctx Context,
     types: Types<'ctx>,
+    // TODO this is the bad old typestore, remove it
     type_store: TypeStore<'ctx>,
 }
 
@@ -48,5 +50,9 @@ impl<'ctx> CodegenContext<'ctx> {
 
     pub(crate) const fn value_types(&self) -> &ValueTypes<'ctx> {
         self.types.value()
+    }
+
+    pub(crate) const fn types_types(&self) -> &TypesTypes<'ctx> {
+        self.types.types()
     }
 }

@@ -46,18 +46,23 @@ impl<'ctx> TypeStoreModule<'ctx> {
         // TODO this should be a part of codegen_context prolly?
         let module_builder_provider = module::register(codegen_context);
         let mut module_builder = module_builder_provider.make_builder("type_store");
-        let type_store_provider = TypeStoreProvider::register(codegen_context.llvm_context());
-        let type_value_provider = TypeValueProvider::register(codegen_context.llvm_context());
 
-        let type_store = module_builder.add_global(type_store_provider.llvm_type(), "type_store");
-        type_store.set_initializer(&type_store_provider.llvm_type().const_zero());
+        let type_store = module_builder.add_global(
+            codegen_context.types_types().store().llvm_type(),
+            "type_store",
+        );
+        type_store.set_initializer(
+            &codegen_context
+                .types_types()
+                .store()
+                .llvm_type()
+                .const_zero(),
+        );
 
         let type_store_initializer = make_type_store_initializer(
             codegen_context,
             &module_builder,
-            &type_store_provider,
             type_store.as_pointer_value(),
-            &type_value_provider,
         );
 
         module_builder.add_global_constructor(GlobalConstructorOpaque {
@@ -92,9 +97,7 @@ impl<'ctx> TypeStoreModule<'ctx> {
 fn make_type_store_initializer<'ctx>(
     codegen_context: &CodegenContext<'ctx>,
     module_builder: &module::ModuleBuilder<'ctx>,
-    type_store_provider: &TypeStoreProvider<'ctx>,
     type_store: PointerValue<'ctx>,
-    type_value_provider: &TypeValueProvider<'ctx>,
 ) -> inkwell::values::FunctionValue<'ctx> {
     let type_store_initializer = module_builder.add_function(
         "type_store_initializer",
@@ -115,10 +118,14 @@ fn make_type_store_initializer<'ctx>(
         .i32_type()
         .const_int(1, false);
     let types = builder
-        .build_array_malloc(type_value_provider.llvm_type(), capacity, "types")
+        .build_array_malloc(
+            codegen_context.types_types().value().llvm_type(),
+            capacity,
+            "types",
+        )
         .unwrap();
 
-    type_store_provider.fill_in(
+    codegen_context.types_types().store().provider().fill_in(
         type_store,
         &builder,
         types,

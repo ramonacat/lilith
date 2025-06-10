@@ -1,10 +1,13 @@
 pub(in crate::codegen) mod functions;
 pub(in crate::codegen) mod primitive;
+#[allow(clippy::module_inception)]
+pub(in crate::codegen) mod types;
 pub(in crate::codegen) mod value;
 
 use functions::FunctionTypes;
 use inkwell::{builder::Builder, context::Context, types::StructType, values::GlobalValue};
 use primitive::PrimitiveTypes;
+use types::TypesTypes;
 use value::{TypeTag, ValueOpaquePointer, ValueProvider};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -30,6 +33,7 @@ pub(super) fn register(context: &Context) -> Types {
         value: value_types,
         function: FunctionTypes::new(context, value_types),
         primitive: PrimitiveTypes::new(value_types, context),
+        types: TypesTypes::new(context),
     }
 }
 
@@ -54,9 +58,12 @@ impl<'ctx> ValueTypes<'ctx> {
 
 pub(super) struct Types<'ctx> {
     context: &'ctx Context,
+
     value: ValueTypes<'ctx>,
     function: FunctionTypes<'ctx>,
     primitive: PrimitiveTypes<'ctx>,
+    #[allow(clippy::struct_field_names)]
+    types: TypesTypes<'ctx>,
 }
 
 impl<'ctx> Types<'ctx> {
@@ -95,5 +102,9 @@ impl<'ctx> Types<'ctx> {
 
     pub(in crate::codegen) const fn primitive(&self) -> &PrimitiveTypes<'ctx> {
         &self.primitive
+    }
+
+    pub(crate) const fn types(&self) -> &TypesTypes<'ctx> {
+        &self.types
     }
 }
