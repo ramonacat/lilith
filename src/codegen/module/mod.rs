@@ -1,7 +1,6 @@
 use inkwell::{
-    context::Context,
     module::{Linkage, Module},
-    types::{BasicType, StructType},
+    types::{BasicType, FunctionType, StructType},
     values::{FunctionValue, GlobalValue, PointerValue},
 };
 
@@ -19,42 +18,57 @@ llvm_struct! {
     }
 }
 
-pub fn register<'ctx>(codegen_context: &CodegenContext<'ctx>) -> ModuleBuilderProvider<'ctx> {
+pub fn register<'ctx, 'codegen>(
+    codegen_context: &'codegen CodegenContext<'ctx>,
+) -> ModuleBuilderProvider<'ctx, 'codegen> {
     ModuleBuilderProvider {
         global_constructors_provider: GlobalConstructorProvider::register(
             codegen_context.llvm_context(),
         ),
-        context: codegen_context.llvm_context(),
+        codegen_context,
     }
 }
 
-pub(in crate::codegen) struct ModuleBuilderProvider<'ctx> {
-    global_constructors_provider: GlobalConstructorProvider<'ctx>,
-    context: &'ctx Context,
+pub(in crate::codegen) enum FunctionVisibility {
+    Private,
+    // TODO add Export here for functions that can be considered a public API of a module and
+    // imported in other ones
 }
 
-impl<'ctx> ModuleBuilderProvider<'ctx> {
-    pub fn make_builder(&self, name: &str) -> ModuleBuilder<'ctx> {
+pub(in crate::codegen) struct ModuleBuilderProvider<'ctx, 'codegen> {
+    global_constructors_provider: GlobalConstructorProvider<'ctx>,
+    codegen_context: &'codegen CodegenContext<'ctx>,
+}
+
+impl<'ctx, 'codegen> ModuleBuilderProvider<'ctx, 'codegen> {
+    pub fn make_builder(&self, name: &str) -> ModuleBuilder<'ctx, 'codegen> {
         ModuleBuilder::new(
             name,
-            self.context,
+            self.codegen_context,
             self.global_constructors_provider.llvm_type(),
         )
     }
 }
 
-pub(in crate::codegen) struct ModuleBuilder<'ctx> {
+pub(in crate::codegen) struct ModuleBuilder<'ctx, 'codegen> {
     module: Module<'ctx>,
     global_constructors: Vec<GlobalConstructorOpaque<'ctx>>,
     global_constructor_type: StructType<'ctx>,
+
+    codegen_context: &'codegen CodegenContext<'ctx>,
 }
 
-impl<'ctx> ModuleBuilder<'ctx> {
-    fn new(name: &str, context: &'ctx Context, global_constructor_type: StructType<'ctx>) -> Self {
+impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
+    fn new(
+        name: &str,
+        codegen_context: &'codegen CodegenContext<'ctx>,
+        global_constructor_type: StructType<'ctx>,
+    ) -> Self {
         Self {
-            module: context.create_module(name),
+            module: codegen_context.llvm_context().create_module(name),
             global_constructors: vec![],
             global_constructor_type,
+            codegen_context,
         }
     }
 
@@ -67,6 +81,7 @@ impl<'ctx> ModuleBuilder<'ctx> {
             module,
             global_constructors,
             global_constructor_type,
+            codegen_context: _,
         } = self;
 
         let global_constructors_array_type =
@@ -96,14 +111,18 @@ impl<'ctx> ModuleBuilder<'ctx> {
         self.module.add_global(r#type, None, name)
     }
 
-    pub(crate) fn add_function(
+    pub(in crate::codegen) fn build_function(
         &self,
         name: &str,
-        signature: inkwell::types::FunctionType<'ctx>,
-        // TODO while we don't exactly want to expose the linkage, it might make sense to have some
-        // concept of "public", so that we can collect all the public signatures for import into
-        // another module
+        // TODO this will be needed so we can generate imports for other modules
+        _visibility: FunctionVisibility,
+        signature: FunctionType<'ctx>,
+        build: impl Fn(FunctionValue<'ctx>, &CodegenContext),
     ) -> FunctionValue<'ctx> {
-        self.module.add_function(name, signature, None)
+        let function = self.module.add_function(name, signature, None);
+
+        build(function, self.codegen_context);
+
+        function
     }
 }

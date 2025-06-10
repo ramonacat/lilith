@@ -1,4 +1,7 @@
+mod methods;
+
 use inkwell::{module::Module, values::PointerValue};
+use methods::make_type_store_initializer;
 
 use super::{
     context::CodegenContext,
@@ -92,50 +95,4 @@ impl<'ctx> TypeStoreModule<'ctx> {
     pub(in crate::codegen) fn build(self) -> Module<'ctx> {
         self.module
     }
-}
-
-fn make_type_store_initializer<'ctx>(
-    codegen_context: &CodegenContext<'ctx>,
-    module_builder: &module::ModuleBuilder<'ctx>,
-    type_store: PointerValue<'ctx>,
-) -> inkwell::values::FunctionValue<'ctx> {
-    let type_store_initializer = module_builder.add_function(
-        "type_store_initializer",
-        codegen_context
-            .llvm_context()
-            .void_type()
-            .fn_type(&[], false),
-    );
-
-    let entry = codegen_context
-        .llvm_context()
-        .append_basic_block(type_store_initializer, "entry");
-    let builder = codegen_context.llvm_context().create_builder();
-    builder.position_at_end(entry);
-
-    let capacity = codegen_context
-        .llvm_context()
-        .i32_type()
-        .const_int(1, false);
-    let types = builder
-        .build_array_malloc(
-            codegen_context.types_types().value().llvm_type(),
-            capacity,
-            "types",
-        )
-        .unwrap();
-
-    codegen_context.types_types().store().provider().fill_in(
-        type_store,
-        &builder,
-        types,
-        codegen_context
-            .llvm_context()
-            .i32_type()
-            .const_int(0, false),
-        capacity,
-    );
-    builder.build_return(None).unwrap();
-
-    type_store_initializer
 }

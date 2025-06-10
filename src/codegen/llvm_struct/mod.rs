@@ -33,7 +33,6 @@ macro_rules! get_field_inner {
 #[macro_export]
 macro_rules! get_field {
     ($field_name_first:ident: $field_type_first:ty, $($field_name:ident: $field_type:ty),*) => {
-        // TODO can we do some dark magic to return a more precise type here?
         get_field_inner!(0u32, $field_name_first: $field_type_first);
 
         get_field!(1u32, $($field_name: $field_type),*);
