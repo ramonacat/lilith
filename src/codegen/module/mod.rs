@@ -2,7 +2,7 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     types::{BasicType, StructType},
-    values::{FunctionValue, GlobalValue, IntValue, PointerValue},
+    values::{FunctionValue, GlobalValue, PointerValue},
 };
 
 use super::context::CodegenContext;
@@ -45,13 +45,9 @@ impl<'ctx> ModuleBuilderProvider<'ctx> {
 
 pub(in crate::codegen) struct ModuleBuilder<'ctx> {
     module: Module<'ctx>,
-    global_constructors: Vec<GlobalConstructorType<'ctx>>,
+    global_constructors: Vec<GlobalConstructorOpaque<'ctx>>,
     global_constructor_type: StructType<'ctx>,
 }
-
-// TODO this is an abomination, but we need to have automagic generation of structs for this in
-// llvm_struct
-type GlobalConstructorType<'ctx> = (IntValue<'ctx>, PointerValue<'ctx>, PointerValue<'ctx>);
 
 impl<'ctx> ModuleBuilder<'ctx> {
     fn new(name: &str, context: &'ctx Context, global_constructor_type: StructType<'ctx>) -> Self {
@@ -62,7 +58,7 @@ impl<'ctx> ModuleBuilder<'ctx> {
         }
     }
 
-    pub fn add_global_constructor(&mut self, constructor: GlobalConstructorType<'ctx>) {
+    pub fn add_global_constructor(&mut self, constructor: GlobalConstructorOpaque<'ctx>) {
         self.global_constructors.push(constructor);
     }
 
@@ -83,7 +79,11 @@ impl<'ctx> ModuleBuilder<'ctx> {
         let constructors: Vec<_> = global_constructors
             .iter()
             .map(|x| {
-                global_constructor_type.const_named_struct(&[x.0.into(), x.1.into(), x.2.into()])
+                global_constructor_type.const_named_struct(&[
+                    x.priority.into(),
+                    x.target.into(),
+                    x.initialized_value.into(),
+                ])
             })
             .collect();
         global_constructors_value

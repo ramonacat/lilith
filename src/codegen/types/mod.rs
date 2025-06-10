@@ -5,7 +5,7 @@ pub(in crate::codegen) mod value;
 use functions::FunctionTypes;
 use inkwell::{builder::Builder, context::Context, types::StructType, values::GlobalValue};
 use primitive::PrimitiveTypes;
-use value::{TypeTag, ValueOpaque, ValueProvider};
+use value::{TypeTag, ValueOpaquePointer, ValueProvider};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
@@ -47,8 +47,8 @@ impl<'ctx> ValueTypes<'ctx> {
     pub(crate) const fn opaque(
         &self,
         pointer: inkwell::values::PointerValue<'ctx>,
-    ) -> ValueOpaque<'ctx> {
-        self.value_type.opaque(pointer)
+    ) -> ValueOpaquePointer<'ctx> {
+        self.value_type.opaque_pointer(pointer)
     }
 }
 

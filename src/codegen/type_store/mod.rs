@@ -1,6 +1,9 @@
 use inkwell::{module::Module, values::PointerValue};
 
-use super::{context::CodegenContext, module};
+use super::{
+    context::CodegenContext,
+    module::{self, GlobalConstructorOpaque},
+};
 use crate::codegen::{
     context_ergonomics::ContextErgonomics,
     llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
@@ -61,14 +64,15 @@ impl<'ctx> TypeStoreModule<'ctx> {
                 .fn_type(&[], false),
         );
 
-        module_builder.add_global_constructor((
-            codegen_context
+        module_builder.add_global_constructor(GlobalConstructorOpaque {
+            // TODO add a method to make it easier to create constants
+            priority: codegen_context
                 .llvm_context()
                 .i32_type()
                 .const_int(0, false),
-            type_store_initializer.as_global_value().as_pointer_value(),
-            type_store.as_pointer_value(),
-        ));
+            target: type_store_initializer.as_global_value().as_pointer_value(),
+            initialized_value: type_store.as_pointer_value(),
+        });
 
         let module = module_builder.build();
 

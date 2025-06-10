@@ -68,16 +68,19 @@ macro_rules! llvm_struct {
         }
 
         paste::paste! {
-            #[derive(Debug, Clone, Copy)]
-            // TODO Opaque should be called OpaquePointer, and there should be a separate Opaque
-            // struct, which contains the IntValue, PointerValue, etc. values
+            #[allow(unused)]
             pub(in $crate::codegen) struct [<$name Opaque>]<'ctx> {
+                $(pub(in $crate::codegen) $field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
+            }
+
+            #[derive(Debug, Clone, Copy)]
+            pub(in $crate::codegen) struct [<$name OpaquePointer>]<'ctx> {
                 pointer: inkwell::values::PointerValue<'ctx>,
                 context: &'ctx inkwell::context::Context,
                 llvm_type: inkwell::types::StructType<'ctx>,
             }
 
-            impl<'ctx> [<$name Opaque>]<'ctx> {
+            impl<'ctx> [<$name OpaquePointer>]<'ctx> {
                 #[allow(unused)]
                 const fn new(
                     pointer: PointerValue<'ctx>,
@@ -98,7 +101,6 @@ macro_rules! llvm_struct {
             }
 
             #[allow(unused)]
-            #[allow(unused)]
             impl<'ctx> [<$name Provider>]<'ctx> {
                 pub(in $crate::codegen) fn register(context: &'ctx inkwell::context::Context) -> Self {
                     let llvm_type = context.named_struct(stringify!($name), &[
@@ -108,8 +110,21 @@ macro_rules! llvm_struct {
                 }
 
                 #[allow(unused)]
-                pub(in $crate::codegen) const fn opaque(&self, pointer: PointerValue<'ctx>) -> [<$name Opaque>]<'ctx> {
-                    [<$name Opaque>]::new(pointer, self.context, self.llvm_type)
+                pub(in $crate::codegen) const fn opaque_pointer(
+                    &self,
+                    pointer: PointerValue<'ctx>
+                ) -> [<$name OpaquePointer>]<'ctx> {
+                    [<$name OpaquePointer>]::new(pointer, self.context, self.llvm_type)
+                }
+
+                #[allow(unused)]
+                pub(in $crate::codegen) fn opaque_to_value(
+                    &self,
+                    opaque: [<$name Opaque>]<'ctx>
+                ) -> inkwell::values::StructValue<'ctx> {
+                    self.llvm_type.const_named_struct(&[
+                        $(opaque.$field_name.into()),+
+                    ])
                 }
 
                 #[allow(clippy::too_many_arguments)]
