@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct Identifier(u32);
 
 #[repr(u8)]
