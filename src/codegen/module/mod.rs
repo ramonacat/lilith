@@ -1,4 +1,5 @@
 use inkwell::{
+    AddressSpace,
     module::{Linkage, Module},
     types::{BasicType, FunctionType, StructType},
     values::{FunctionValue, GlobalValue, PointerValue},
@@ -72,8 +73,29 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         }
     }
 
-    pub fn add_global_constructor(&mut self, constructor: GlobalConstructorOpaque<'ctx>) {
-        self.global_constructors.push(constructor);
+    pub fn add_global_constructor(
+        &mut self,
+        priority: u32,
+        constructor: FunctionValue<'ctx>,
+        initialized_value: Option<GlobalValue<'ctx>>,
+    ) {
+        self.global_constructors.push(GlobalConstructorOpaque {
+            priority: self
+                .codegen_context
+                .llvm_context()
+                .i32_type()
+                .const_int(u64::from(priority), false),
+            target: constructor.as_global_value().as_pointer_value(),
+            initialized_value: initialized_value.map_or_else(
+                || {
+                    self.codegen_context
+                        .llvm_context()
+                        .ptr_type(AddressSpace::default())
+                        .const_null()
+                },
+                GlobalValue::as_pointer_value,
+            ),
+        });
     }
 
     pub fn build(self) -> Module<'ctx> {

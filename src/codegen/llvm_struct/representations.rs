@@ -58,5 +58,6 @@ llvm_representation!(@int TypeTag, 8);
 llvm_representation!(@int ClassId, 16);
 llvm_representation!(@int Identifier, 32);
 llvm_representation!(@int TypeId, 32);
+// TODO probably separate representations for function and non-function values?
 llvm_representation!(@ptr<T> *const T);
 llvm_representation!(@ptr<T> Option<*const T>);
