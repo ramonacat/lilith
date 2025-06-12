@@ -1,7 +1,9 @@
-mod methods;
+mod add;
+mod initializer;
 
+use add::make_add;
+use initializer::make_type_store_initializer;
 use inkwell::{module::Module, values::PointerValue};
-use methods::make_type_store_initializer;
 
 use super::{context::CodegenContext, module};
 use crate::codegen::{
@@ -37,14 +39,20 @@ pub(in crate::codegen) struct TypeStoreModule<'ctx> {
     module: Module<'ctx>,
 }
 
-// TODO we should provide an API here that will insert the declarations of the API for the type
-// store into another module, so it can be used there as well
+// TODO currently we're storing straight up Value here, but we need to use TypeValue here, so that
+// the users can actually get the types
+// TODO add methods for getting the types actually
+// TODO generalize the code so we can actually have vectors of any type
+// TODO replace the uses of the old crate::typestore with this
+// TODO create a debug method that will print out the length, capacity, and contained types
+// TODO replace this with a hashmap, so that accessing a type isn't a linear-time ordeal
 impl<'ctx> TypeStoreModule<'ctx> {
-    // TODO we should actually expose an interface here that will allow registering type
-    // definitions
     fn new(codegen_context: &CodegenContext<'ctx>) -> Self {
         // TODO this should be a part of codegen_context prolly?
         let module_builder_provider = module::register(codegen_context);
+
+        // TODO we likely want to do some name mangling and have a naming convention and shit for the
+        // builtin modules
         let mut module_builder = module_builder_provider.make_builder("type_store");
 
         let type_store = module_builder.add_global(
@@ -66,17 +74,23 @@ impl<'ctx> TypeStoreModule<'ctx> {
         );
 
         module_builder.add_global_constructor(0, type_store_initializer, Some(type_store));
+        make_add(
+            codegen_context,
+            &module_builder,
+            codegen_context
+                .types_types()
+                .store()
+                .provider()
+                .opaque_pointer(type_store.as_pointer_value()),
+        );
 
         let module = module_builder.build();
 
+        // TODO these things should not be happening here, but instead at some final linking stage
         module.print_to_stderr();
         module.verify().unwrap();
 
-        Self {
-            // TODO we likely want to do some name mangling and have a naming convention and shit for the
-            // builtin modules
-            module,
-        }
+        Self { module }
     }
 
     // TODO this should return two things in fact - one is the module, another is the object that

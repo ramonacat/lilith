@@ -6,22 +6,30 @@ macro_rules! get_field_inner {
     ($index:expr, $field_name:ident: $field_type:ty) => {
         paste::paste! {
             #[allow(unused)]
+            pub fn [<get_ $field_name _ptr>](
+                self,
+                builder: &inkwell::builder::Builder<'ctx>
+            ) -> inkwell::values::PointerValue<'ctx> {
+                builder.build_struct_gep(
+                    self.llvm_type,
+                    self.pointer,
+                    $index,
+                    stringify!([<$field_name _gep>])
+                ).unwrap()
+            }
+
+            #[allow(unused)]
             pub fn [<get_ $field_name>](
                 self,
                 builder: &inkwell::builder::Builder<'ctx>
             ) -> <$field_type as LlvmRepresentation<'ctx>>::LlvmValue {
-                let struct_gep = builder.build_struct_gep(
-                    self.llvm_type,
-                    self.pointer,
-                    $index,
-                    "field_gep"
-                ).unwrap();
+                let struct_gep = self.[<get_ $field_name _ptr>](builder);
 
                 (
                     builder.build_load(
                         <$field_type>::llvm_type(self.context),
                         struct_gep,
-                        "field"
+                        stringify!($field_name),
                     )
                     .unwrap()
                 ).into_value()
@@ -151,7 +159,7 @@ macro_rules! llvm_struct {
                                 self.llvm_type,
                                 target,
                                 index,
-                                "field_gep"
+                                stringify!([<$field_name _gep>])
                             )
                             .unwrap();
 

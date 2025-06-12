@@ -32,8 +32,7 @@ pub fn register<'ctx, 'codegen>(
 
 pub(in crate::codegen) enum FunctionVisibility {
     Private,
-    // TODO add Export here for functions that can be considered a public API of a module and
-    // imported in other ones
+    Public,
 }
 
 pub(in crate::codegen) struct ModuleBuilderProvider<'ctx, 'codegen> {

@@ -81,7 +81,7 @@ impl<'ctx> FunctionTypes<'ctx> {
                 self.context
                     .i32_type()
                     .const_int(arguments.len() as u64 + 1, false),
-                "arguments",
+                "arguments_allocation",
             )
             .unwrap();
 
@@ -98,7 +98,7 @@ impl<'ctx> FunctionTypes<'ctx> {
                     self.function_argument_type.llvm_type(),
                     arguments_allocation,
                     &[self.context.i32_type().const_int(index as u64, false)],
-                    "arguments",
+                    "argument",
                 )
             }
             .unwrap();
