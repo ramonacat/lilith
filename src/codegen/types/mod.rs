@@ -10,6 +10,7 @@ use primitive::PrimitiveTypes;
 use types::TypesTypes;
 use value::ValueProvider;
 
+use super::ContextErgonomics as _;
 use crate::bytecode::TypeTag;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -72,10 +73,7 @@ impl<'ctx> Types<'ctx> {
             builder.build_gep(
                 self.value.value_type.llvm_type(),
                 types.as_pointer_value(),
-                &[self
-                    .context
-                    .i32_type()
-                    .const_int(TypeTag::U64 as u64, false)],
+                &[self.context.const_u32(TypeTag::U64 as u32)],
                 "gep_u64",
             )
         }
@@ -84,9 +82,7 @@ impl<'ctx> Types<'ctx> {
         let value = self.value.make_value(
             self.value.make_tag(TypeTag::Primitive),
             self.value.make_class_id(ClassId::none()),
-            self.context
-                .i64_type()
-                .const_int(TypeTag::U64 as u64, false),
+            self.context.const_u64(TypeTag::U64 as u64),
             builder,
         );
 

@@ -3,7 +3,7 @@ use inkwell::{
     builder::Builder, context::Context, module::Module, types::StructType, values::GlobalValue,
 };
 
-use super::types::Types;
+use super::{ContextErgonomics as _, types::Types};
 
 const PREDEFINED_TYPES_COUNT: u32 = 256;
 
@@ -58,7 +58,7 @@ impl<'ctx> TypeStore<'ctx> {
             builder.build_gep(
                 self.value_type,
                 self.store.as_pointer_value(),
-                &[self.context.i32_type().const_int(index, false)],
+                &[self.context.const_u32(u32::try_from(index).unwrap())],
                 "type",
             )
         }

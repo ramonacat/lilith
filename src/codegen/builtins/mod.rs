@@ -3,7 +3,10 @@ mod debug;
 use debug::debug_type_definition_impl;
 use inkwell::{execution_engine::ExecutionEngine, module::Module};
 
-use super::{context::CodegenContext, context_ergonomics::ContextErgonomics, types::value::Value};
+use super::{
+    context::{CodegenContext, type_maker::TypeDeclaration},
+    types::value::Value,
+};
 
 pub(in crate::codegen) fn register<'ctx>(
     execution_engine: &ExecutionEngine<'ctx>,
@@ -13,9 +16,8 @@ pub(in crate::codegen) fn register<'ctx>(
     let debug_type_definition = module.add_function(
         "debug_type_definition",
         codegen_context
-            .llvm_context()
-            .void_type()
-            .fn_type(&[codegen_context.llvm_context().ptr().into()], false),
+            .type_maker()
+            .make_function(None, &[TypeDeclaration::Pointer]),
         None,
     );
 

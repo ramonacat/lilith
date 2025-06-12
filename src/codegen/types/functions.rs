@@ -79,8 +79,7 @@ impl<'ctx> FunctionTypes<'ctx> {
             .build_array_malloc(
                 self.function_argument_type.llvm_type(),
                 self.context
-                    .i32_type()
-                    .const_int(arguments.len() as u64 + 1, false),
+                    .const_u32(u32::try_from(arguments.len()).unwrap() + 1),
                 "arguments_allocation",
             )
             .unwrap();
@@ -88,8 +87,8 @@ impl<'ctx> FunctionTypes<'ctx> {
         for (index, argument) in arguments
             .iter()
             .chain(&[ArgumentType::new(
-                self.context.i32_type().const_int(0, false),
-                self.context.i32_type().const_int(0, false),
+                self.context.const_u32(0),
+                self.context.const_u32(0),
             )])
             .enumerate()
         {
@@ -97,7 +96,7 @@ impl<'ctx> FunctionTypes<'ctx> {
                 builder.build_gep(
                     self.function_argument_type.llvm_type(),
                     arguments_allocation,
-                    &[self.context.i32_type().const_int(index as u64, false)],
+                    &[self.context.const_u32(u32::try_from(index).unwrap())],
                     "argument",
                 )
             }
@@ -124,7 +123,7 @@ impl<'ctx> FunctionTypes<'ctx> {
             signature_ptr,
             builder,
             class_id,
-            self.context.i16_type().const_zero(),
+            self.context.const_u16(0),
             return_type,
             arguments,
         );

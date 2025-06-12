@@ -1,7 +1,11 @@
 use inkwell::IntPredicate;
 
 use super::TypeStoreOpaquePointer;
-use crate::codegen::{context::CodegenContext, context_ergonomics::ContextErgonomics, module};
+use crate::codegen::{
+    ContextErgonomics as _,
+    context::{CodegenContext, type_maker::TypeDeclaration},
+    module,
+};
 
 pub(super) fn make_add<'ctx>(
     codegen_context: &CodegenContext<'ctx>,
@@ -13,9 +17,8 @@ pub(super) fn make_add<'ctx>(
         module::FunctionVisibility::Public,
         // TODO consider createing our own simpler API for declaring types?
         codegen_context
-            .llvm_context()
-            .void_type()
-            .fn_type(&[codegen_context.llvm_context().ptr().into()], false),
+            .type_maker()
+            .make_function(None, &[TypeDeclaration::Pointer]),
         |function, codegen_context| {
             let builder = codegen_context.llvm_context().create_builder();
             let entry = codegen_context
@@ -51,10 +54,7 @@ pub(super) fn make_add<'ctx>(
             let new_capacity = builder
                 .build_int_mul(
                     store_capacity,
-                    codegen_context
-                        .llvm_context()
-                        .i32_type()
-                        .const_int(2, false),
+                    codegen_context.llvm_context().const_u32(2),
                     "new_capacity",
                 )
                 .unwrap();
@@ -105,10 +105,7 @@ pub(super) fn make_add<'ctx>(
             let new_length = builder
                 .build_int_add(
                     store_length,
-                    codegen_context
-                        .llvm_context()
-                        .i32_type()
-                        .const_int(1, false),
+                    codegen_context.llvm_context().const_u32(1),
                     "added_length",
                 )
                 .unwrap();

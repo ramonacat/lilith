@@ -79,11 +79,7 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         initialized_value: Option<GlobalValue<'ctx>>,
     ) {
         self.global_constructors.push(GlobalConstructorOpaque {
-            priority: self
-                .codegen_context
-                .llvm_context()
-                .i32_type()
-                .const_int(u64::from(priority), false),
+            priority: self.codegen_context.llvm_context().const_u32(priority),
             target: constructor.as_global_value().as_pointer_value(),
             initialized_value: initialized_value.map_or_else(
                 || {

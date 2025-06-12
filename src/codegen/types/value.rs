@@ -26,11 +26,11 @@ llvm_struct! {
 
 impl<'ctx> ValueTypes<'ctx> {
     pub(in crate::codegen) fn make_tag(&self, tag: TypeTag) -> IntValue<'ctx> {
-        self.context.i8_type().const_int(tag as u64, false)
+        self.context.const_u8(tag as u8)
     }
 
     pub(in crate::codegen) fn make_class_id(&self, id: ClassId) -> IntValue<'ctx> {
-        self.context.i16_type().const_int(u64::from(id.0), false)
+        self.context.const_u16(id.0)
     }
 
     pub(in crate::codegen) fn make_value(
@@ -48,9 +48,9 @@ impl<'ctx> ValueTypes<'ctx> {
             target,
             builder,
             type_tag,
-            self.context.i8_type().const_zero(),
+            self.context.const_u8(0),
             class_id,
-            self.context.i32_type().const_zero(),
+            self.context.const_u32(0),
             value,
         );
 

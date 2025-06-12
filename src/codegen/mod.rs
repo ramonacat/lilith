@@ -11,6 +11,7 @@ pub(in crate::codegen) mod typestore;
 use std::collections::HashMap;
 
 use context::CodegenContext;
+use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
 use types::value::ValueOpaquePointer;
 
@@ -70,31 +71,34 @@ impl<'ctx> CodeGen<'ctx> {
         let execution_engine = module
             .create_jit_execution_engine(inkwell::OptimizationLevel::Aggressive)
             .unwrap();
-        let main = module.add_function("main", self.context.i64_type().fn_type(&[], false), None);
         let builder = self.context.create_builder();
 
+        let main = module.add_function(
+            "main",
+            // TODO we should use the type_maker here, but that requires first that CodegenContext
+            // does not use builder
+            self.context.i64_type().fn_type(&[], false),
+            None,
+        );
         let entry_block = self.context.append_basic_block(main, "entry");
         builder.position_at_end(entry_block);
 
         let codegen_context = CodegenContext::new(self.context, &builder, &module);
+
         builtins::register(&execution_engine, &module, &codegen_context);
 
         let arguments = codegen_context.function_types().make_function_arguments(
             &builder,
             &[ArgumentType::new(
-                self.context.i32_type().const_int(1, false),
-                self.context
-                    .i32_type()
-                    .const_int(TypeTag::U64 as u64, false),
+                self.context.const_u32(1),
+                self.context.const_u32(TypeTag::U64 as u32),
             )],
         );
 
         let signature = codegen_context.function_types().make_function_signature(
             &builder,
-            self.context.i16_type().const_int(0, false),
-            self.context
-                .i32_type()
-                .const_int(TypeTag::U64 as u64, false),
+            self.context.const_u16(0),
+            self.context.const_u32(TypeTag::U64 as u32),
             arguments,
         );
 
@@ -162,20 +166,11 @@ impl<'ctx> CodeGen<'ctx> {
             crate::bytecode::Value::Literal(const_value) => {
                 // TODO add some comfort methods for simple i*_type constants
                 codegen_context.value_types().make_value(
-                    codegen_context
-                        .llvm_context()
-                        .i8_type()
-                        .const_int(TypeTag::U64 as u64, false),
-                    codegen_context
-                        .llvm_context()
-                        .i16_type()
-                        .const_int(0, false),
-                    codegen_context.llvm_context().i64_type().const_int(
-                        match const_value {
-                            ConstValue::U64(value) => value,
-                        },
-                        false,
-                    ),
+                    codegen_context.llvm_context().const_u8(TypeTag::U64 as u8),
+                    codegen_context.llvm_context().const_u16(0),
+                    codegen_context.llvm_context().const_u64(match const_value {
+                        ConstValue::U64(value) => value,
+                    }),
                     builder,
                 )
             }

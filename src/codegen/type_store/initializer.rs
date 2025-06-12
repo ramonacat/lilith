@@ -1,6 +1,6 @@
 use inkwell::values::PointerValue;
 
-use crate::codegen::{context::CodegenContext, module};
+use crate::codegen::{ContextErgonomics as _, context::CodegenContext, module};
 
 pub(super) fn make_type_store_initializer<'ctx>(
     codegen_context: &CodegenContext<'ctx>,
@@ -10,10 +10,7 @@ pub(super) fn make_type_store_initializer<'ctx>(
     module_builder.build_function(
         "type_store_initializer",
         module::FunctionVisibility::Private,
-        codegen_context
-            .llvm_context()
-            .void_type()
-            .fn_type(&[], false),
+        codegen_context.type_maker().make_function(None, &[]),
         |function, codegen_context| {
             let entry = codegen_context
                 .llvm_context()
@@ -21,10 +18,7 @@ pub(super) fn make_type_store_initializer<'ctx>(
             let builder = codegen_context.llvm_context().create_builder();
             builder.position_at_end(entry);
 
-            let capacity = codegen_context
-                .llvm_context()
-                .i32_type()
-                .const_int(1, false);
+            let capacity = codegen_context.llvm_context().const_u32(1);
             let types = builder
                 .build_array_malloc(
                     codegen_context.types_types().value().llvm_type(),
@@ -37,10 +31,7 @@ pub(super) fn make_type_store_initializer<'ctx>(
                 type_store,
                 &builder,
                 types,
-                codegen_context
-                    .llvm_context()
-                    .i32_type()
-                    .const_int(0, false),
+                codegen_context.llvm_context().const_u32(0),
                 capacity,
             );
             builder.build_return(None).unwrap();
