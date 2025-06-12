@@ -2,7 +2,6 @@
 mod bytecode;
 #[macro_use]
 mod codegen;
-mod types;
 use bytecode::ByteCode;
 use codegen::CodeGen;
 use inkwell::context::Context;
