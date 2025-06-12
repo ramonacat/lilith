@@ -14,7 +14,7 @@ impl std::fmt::Debug for crate::codegen::types::value::Value {
                 self.tag,
                 TypeTag::from_value(u8::try_from(self.raw).unwrap())
             ),
-            TypeTag::U64 => todo!(),
+            TypeTag::U64 => write!(f, "u64({})", self.raw),
             TypeTag::FunctionSignature => {
                 // TODO resolve the return type to the actual type
                 // TODO resolve the interned names

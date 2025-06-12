@@ -6,7 +6,6 @@ pub(in crate::codegen) mod llvm_struct;
 pub(in crate::codegen) mod module;
 pub(in crate::codegen) mod type_store;
 pub(in crate::codegen) mod types;
-pub(in crate::codegen) mod typestore;
 
 use std::collections::HashMap;
 
@@ -83,9 +82,13 @@ impl<'ctx> CodeGen<'ctx> {
         let entry_block = self.context.append_basic_block(main, "entry");
         builder.position_at_end(entry_block);
 
-        let codegen_context = CodegenContext::new(self.context, &builder, &module);
+        let codegen_context = CodegenContext::new(self.context);
 
         builtins::register(&execution_engine, &module, &codegen_context);
+
+        let type_store_module = type_store::register(&codegen_context);
+        // TODO instead of a HashMap do we want a strongly-typed struct here?
+        let type_store_api = type_store_module.register_api(&module);
 
         let arguments = codegen_context.function_types().make_function_arguments(
             &builder,
@@ -102,18 +105,29 @@ impl<'ctx> CodeGen<'ctx> {
             arguments,
         );
 
-        let funcsig_slot = codegen_context.type_store().get_slot(257, &builder);
+        let add_type_func = type_store_api.get("add").unwrap();
         builder
-            .build_memmove(
-                funcsig_slot,
-                8,
-                signature.ptr(),
-                8,
-                codegen_context
-                    .function_types()
-                    .signature_llvm_type()
-                    .size_of()
-                    .unwrap(),
+            .build_call(
+                *add_type_func,
+                &[signature.ptr().into()],
+                "add_type_signature",
+            )
+            .unwrap();
+
+        let get_type_func = type_store_api.get("get").unwrap();
+        let first_type = builder
+            .build_call(
+                *get_type_func,
+                &[self.context.const_u64(0).into()],
+                "get_first_type",
+            )
+            .unwrap();
+
+        builder
+            .build_call(
+                module.get_function("debug_type_definition").unwrap(),
+                &[first_type.try_as_basic_value().unwrap_left().into()],
+                "type_definition_debug",
             )
             .unwrap();
 
@@ -122,13 +136,6 @@ impl<'ctx> CodeGen<'ctx> {
             result = Some(self.build_expression(instruction, &builder, &codegen_context));
         }
 
-        builder
-            .build_call(
-                module.get_function("debug_type_definition").unwrap(),
-                &[funcsig_slot.into()],
-                "type_definition_debug",
-            )
-            .unwrap();
         if let Some(result) = result {
             // TODO we should codegen an actual check here to ensure this is an actual u64 and
             // we're not just returning random whatever
@@ -142,7 +149,6 @@ impl<'ctx> CodeGen<'ctx> {
         module.print_to_stderr();
         module.verify().unwrap();
 
-        let type_store_module = type_store::register(&codegen_context);
         module.link_in_module(type_store_module.build()).unwrap();
 
         execution_engine.run_static_constructors();

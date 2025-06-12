@@ -58,4 +58,9 @@ impl<'ctx> TypeValueTypes<'ctx> {
     pub(crate) const fn llvm_type(&self) -> StructType<'ctx> {
         self.type_value_provider.llvm_type()
     }
+
+    // TODO do we want to expose the whole provider?
+    pub(crate) const fn provider(&self) -> &TypeValueProvider {
+        &self.type_value_provider
+    }
 }

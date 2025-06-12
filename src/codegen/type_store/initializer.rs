@@ -4,14 +4,14 @@ use crate::codegen::{ContextErgonomics as _, context::CodegenContext, module};
 
 pub(super) fn make_type_store_initializer<'ctx>(
     codegen_context: &CodegenContext<'ctx>,
-    module_builder: &module::ModuleBuilder<'ctx, '_>,
+    module_builder: &mut module::ModuleBuilder<'ctx, '_>,
     type_store: PointerValue<'ctx>,
 ) -> inkwell::values::FunctionValue<'ctx> {
     module_builder.build_function(
         "type_store_initializer",
         module::FunctionVisibility::Private,
         codegen_context.type_maker().make_function(None, &[]),
-        |function, codegen_context| {
+        |function, codegen_context, _module| {
             let entry = codegen_context
                 .llvm_context()
                 .append_basic_block(function, "entry");

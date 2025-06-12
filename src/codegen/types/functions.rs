@@ -1,7 +1,6 @@
 use inkwell::{
     builder::Builder,
     context::Context,
-    types::StructType,
     values::{IntValue, PointerValue},
 };
 
@@ -138,10 +137,5 @@ impl<'ctx> FunctionTypes<'ctx> {
             signature_u64,
             builder,
         )
-    }
-
-    // TODO this method is fucky hacky, get rid of it once the typestore situation is cleaned up
-    pub(crate) const fn signature_llvm_type(&self) -> StructType<'ctx> {
-        self.function_signature_type.llvm_type()
     }
 }

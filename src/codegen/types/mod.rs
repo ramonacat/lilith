@@ -5,12 +5,11 @@ pub(in crate::codegen) mod types;
 pub(in crate::codegen) mod value;
 
 use functions::FunctionTypes;
-use inkwell::{builder::Builder, context::Context, types::StructType, values::GlobalValue};
+use inkwell::context::Context;
 use primitive::PrimitiveTypes;
 use types::TypesTypes;
 use value::ValueProvider;
 
-use super::ContextErgonomics as _;
 use crate::bytecode::TypeTag;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,7 +31,6 @@ pub(super) fn register(context: &Context) -> Types {
     };
 
     Types {
-        context,
         value: value_types,
         function: FunctionTypes::new(context, value_types),
         primitive: PrimitiveTypes::new(value_types),
@@ -45,17 +43,14 @@ pub(super) struct ValueTypes<'ctx> {
     value_type: ValueProvider<'ctx>,
     context: &'ctx Context,
 }
-
+// TODO is this a good API? Is the whole Types API situation sensible at all?
 impl<'ctx> ValueTypes<'ctx> {
-    // TODO this is fucky hacky for the old bad typestore
-    pub(crate) const fn llvm_type(&self) -> StructType<'ctx> {
+    pub(crate) const fn llvm_type(&self) -> inkwell::types::StructType<'ctx> {
         self.value_type.llvm_type()
     }
 }
 
 pub(super) struct Types<'ctx> {
-    context: &'ctx Context,
-
     value: ValueTypes<'ctx>,
     function: FunctionTypes<'ctx>,
     primitive: PrimitiveTypes<'ctx>,
@@ -66,38 +61,6 @@ pub(super) struct Types<'ctx> {
 impl<'ctx> Types<'ctx> {
     pub(super) const fn value(&self) -> &ValueTypes<'ctx> {
         &self.value
-    }
-
-    pub(super) fn register_predefined(&self, builder: &Builder<'ctx>, types: GlobalValue<'ctx>) {
-        let gep = unsafe {
-            builder.build_gep(
-                self.value.value_type.llvm_type(),
-                types.as_pointer_value(),
-                &[self.context.const_u32(TypeTag::U64 as u32)],
-                "gep_u64",
-            )
-        }
-        .unwrap();
-
-        let value = self.value.make_value(
-            self.value.make_tag(TypeTag::Primitive),
-            self.value.make_class_id(ClassId::none()),
-            self.context.const_u64(TypeTag::U64 as u64),
-            builder,
-        );
-
-        // TODO the alignments are pulled from my ass and idk if they're right, but it doesn't
-        // matter, bevause this will be replaced with codegen::type_store, and this code is fucky
-        // hacky
-        builder
-            .build_memmove(
-                gep,
-                8,
-                value.ptr(),
-                8,
-                self.value.value_type.llvm_type().size_of().unwrap(),
-            )
-            .unwrap();
     }
 
     pub(crate) const fn function(&self) -> &FunctionTypes<'ctx> {

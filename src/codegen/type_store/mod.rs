@@ -1,9 +1,16 @@
 mod add;
+mod get;
 mod initializer;
 
+use std::collections::HashMap;
+
 use add::make_add;
+use get::make_get;
 use initializer::make_type_store_initializer;
-use inkwell::{module::Module, values::PointerValue};
+use inkwell::{
+    module::Module,
+    values::{FunctionValue, PointerValue},
+};
 
 use super::{context::CodegenContext, module};
 use crate::codegen::{
@@ -37,6 +44,7 @@ pub(in crate::codegen) fn register<'ctx>(
 
 pub(in crate::codegen) struct TypeStoreModule<'ctx> {
     module: Module<'ctx>,
+    api: module::PublicFunctionLinks<'ctx>,
 }
 
 // TODO add methods for getting the types actually
@@ -67,14 +75,23 @@ impl<'ctx> TypeStoreModule<'ctx> {
 
         let type_store_initializer = make_type_store_initializer(
             codegen_context,
-            &module_builder,
+            &mut module_builder,
             type_store.as_pointer_value(),
         );
 
         module_builder.add_global_constructor(0, type_store_initializer, Some(type_store));
         make_add(
             codegen_context,
-            &module_builder,
+            &mut module_builder,
+            codegen_context
+                .types_types()
+                .store()
+                .provider()
+                .opaque_pointer(type_store.as_pointer_value()),
+        );
+        make_get(
+            codegen_context,
+            &mut module_builder,
             codegen_context
                 .types_types()
                 .store()
@@ -85,15 +102,25 @@ impl<'ctx> TypeStoreModule<'ctx> {
         let module = module_builder.build();
 
         // TODO these things should not be happening here, but instead at some final linking stage
-        module.print_to_stderr();
-        module.verify().unwrap();
+        module.0.print_to_stderr();
+        module.0.verify().unwrap();
 
-        Self { module }
+        Self {
+            module: module.0,
+            api: module.1,
+        }
     }
 
     // TODO this should return two things in fact - one is the module, another is the object that
     // will allow declaring externs for the API exposed here
     pub(in crate::codegen) fn build(self) -> Module<'ctx> {
         self.module
+    }
+
+    pub(crate) fn register_api(
+        &self,
+        module: &Module<'ctx>,
+    ) -> HashMap<String, FunctionValue<'ctx>> {
+        self.api.register(module)
     }
 }
