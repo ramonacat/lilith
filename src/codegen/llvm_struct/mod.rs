@@ -46,7 +46,6 @@ macro_rules! get_field {
         get_field!(1u32, $($field_name: $field_type),*);
     };
     ($count:expr, $field_name_first:ident: $field_type_first:ty, $($field_name:ident: $field_type:ty),*) => {
-        // TODO can we do some dark magic to return a more precise type here?
         get_field_inner!($count, $field_name_first: $field_type_first);
 
         get_field!(1u32+$count, $($field_name: $field_type),*);

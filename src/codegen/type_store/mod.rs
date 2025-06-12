@@ -39,8 +39,6 @@ pub(in crate::codegen) struct TypeStoreModule<'ctx> {
     module: Module<'ctx>,
 }
 
-// TODO currently we're storing straight up Value here, but we need to use TypeValue here, so that
-// the users can actually get the types
 // TODO add methods for getting the types actually
 // TODO generalize the code so we can actually have vectors of any type
 // TODO replace the uses of the old crate::typestore with this

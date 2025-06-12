@@ -15,7 +15,6 @@ pub(super) fn make_add<'ctx>(
     module_builder.build_function(
         "add",
         module::FunctionVisibility::Public,
-        // TODO consider createing our own simpler API for declaring types?
         codegen_context
             .type_maker()
             .make_function(None, &[TypeDeclaration::Pointer]),
@@ -65,7 +64,7 @@ pub(super) fn make_add<'ctx>(
 
             let new_types = builder
                 .build_array_malloc(
-                    codegen_context.value_types().llvm_type(),
+                    codegen_context.types_types().value().llvm_type(),
                     new_capacity,
                     "new_types",
                 )
@@ -84,7 +83,7 @@ pub(super) fn make_add<'ctx>(
 
             let new_value_spot = unsafe {
                 builder.build_gep(
-                    codegen_context.value_types().llvm_type(),
+                    codegen_context.types_types().value().llvm_type(),
                     store_types,
                     &[store_length],
                     "new_value_spot",
@@ -98,7 +97,12 @@ pub(super) fn make_add<'ctx>(
                     1,
                     function.get_first_param().unwrap().into_pointer_value(),
                     1,
-                    codegen_context.value_types().llvm_type().size_of().unwrap(),
+                    codegen_context
+                        .types_types()
+                        .value()
+                        .llvm_type()
+                        .size_of()
+                        .unwrap(),
                 )
                 .unwrap();
 
