@@ -30,6 +30,7 @@ impl<'ctx> ContextErgonomics<'ctx> for Context {
         self.i64_type().const_int(value, false)
     }
 
+    // TODO get rid of it and have something akin to make_function_type!?
     fn named_struct(&'ctx self, name: &str, fields: &[BasicTypeEnum<'ctx>]) -> StructType<'ctx> {
         let r#struct = self.opaque_struct_type(name);
         r#struct.set_body(fields, false);
