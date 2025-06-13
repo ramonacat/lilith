@@ -109,7 +109,10 @@ impl<'ctx> CodeGen<'ctx> {
         builder
             .build_call(
                 *add_type_func,
-                &[signature.ptr().into()],
+                &[
+                    codegen_context.llvm_context().const_u32(1024).into(),
+                    signature.ptr().into(),
+                ],
                 "add_type_signature",
             )
             .unwrap();
@@ -118,7 +121,7 @@ impl<'ctx> CodeGen<'ctx> {
         let first_type = builder
             .build_call(
                 *get_type_func,
-                &[self.context.const_u64(0).into()],
+                &[self.context.const_u64(1024).into()],
                 "get_first_type",
             )
             .unwrap();

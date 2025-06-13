@@ -21,7 +21,12 @@ macro_rules! llvm_representation {
             }
 
             fn assert_valid(context: &'ctx Context, value: Self::LlvmValue) {
-                assert!(value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width());
+                assert!(
+                    value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width(),
+                    "expected {} bit value, got {} bit",
+                    Self::llvm_type(context).get_bit_width(),
+                    value.get_type().get_bit_width()
+                );
             }
         }
     };

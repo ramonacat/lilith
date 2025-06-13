@@ -7,6 +7,7 @@ use inkwell::{
 #[derive(Clone, Copy)]
 pub(in crate::codegen) enum TypeDeclaration {
     // TODO add U*
+    U32,
     U64,
     // TODO add S* (signed types - these will require some type-level indirection, as those are the
     // same as unsigned, just with different instructions used on them)
@@ -32,6 +33,7 @@ impl<'ctx> TypeMaker<'ctx> {
     // represented
     pub fn make(&self, declaration: TypeDeclaration) -> BasicTypeEnum<'ctx> {
         match declaration {
+            TypeDeclaration::U32 => self.context.i32_type().into(),
             TypeDeclaration::U64 => self.context.i64_type().into(),
             TypeDeclaration::Pointer => self.context.ptr_type(AddressSpace::default()).into(),
         }

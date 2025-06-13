@@ -17,7 +17,8 @@ pub(super) fn make_add<'ctx>(
         module::FunctionVisibility::Public,
         codegen_context
             .type_maker()
-            .make_function(None, &[TypeDeclaration::Pointer]),
+            // TODO make some cleaner API for named arguments
+            .make_function(None, &[TypeDeclaration::U32, TypeDeclaration::Pointer]),
         |function, codegen_context, _module| {
             let builder = codegen_context.llvm_context().create_builder();
             let entry = codegen_context
@@ -68,7 +69,7 @@ pub(super) fn make_add<'ctx>(
             let new_value = builder
                 .build_load(
                     codegen_context.value_types().llvm_type(),
-                    function.get_first_param().unwrap().into_pointer_value(),
+                    function.get_nth_param(1).unwrap().into_pointer_value(),
                     "new_value",
                 )
                 .unwrap();
@@ -76,8 +77,7 @@ pub(super) fn make_add<'ctx>(
             codegen_context.types_types().value().provider().fill_in(
                 new_value_spot,
                 &builder,
-                // TODO each type should get a unique id here
-                codegen_context.llvm_context().const_u32(0),
+                function.get_first_param().unwrap().into_int_value(),
                 new_value.into_struct_value(),
             );
 
