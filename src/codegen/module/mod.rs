@@ -3,19 +3,29 @@ use std::collections::HashMap;
 use inkwell::{
     AddressSpace,
     module::{Linkage, Module},
-    types::{BasicType, FunctionType, StructType},
+    types::{BasicType, StructType},
     values::{FunctionValue, GlobalValue, PointerValue},
 };
 
-use super::context::{CodegenContext, type_maker::TypeDeclaration};
+use super::{
+    builtins::DebugTypeDefinition,
+    context::{
+        CodegenContext,
+        type_maker::{Function, Procedure},
+    },
+};
 use crate::codegen::{
     context_ergonomics::ContextErgonomics,
     llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
 };
 
+make_function_type!(GlobalConstructorFunction, ());
+
 llvm_struct! {
     struct GlobalConstructor {
         priority: u32,
+        // TODO this should be probably connected with GlobalConstructionFunction in some way, but
+        // uhh that requires some meta-thinking
         target: *const fn(),
         initialized_value: Option<*const ()>
     }
@@ -95,9 +105,7 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         // should really invest into some real debug infrastructure
         module.add_function(
             "debug_type_definition",
-            codegen_context
-                .type_maker()
-                .make_function(None, &[TypeDeclaration::Pointer]),
+            DebugTypeDefinition::llvm_type(codegen_context.llvm_context()),
             None,
         );
         Self {
@@ -112,7 +120,7 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
     pub fn add_global_constructor(
         &mut self,
         priority: u32,
-        constructor: FunctionValue<'ctx>,
+        constructor: &GlobalConstructorFunction<'ctx>,
         initialized_value: Option<GlobalValue<'ctx>>,
     ) {
         self.global_constructors.push(GlobalConstructorOpaque {
@@ -128,6 +136,61 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
                 GlobalValue::as_pointer_value,
             ),
         });
+    }
+
+    pub(crate) fn add_global(&self, r#type: impl BasicType<'ctx>, name: &str) -> GlobalValue<'ctx> {
+        self.module.add_global(r#type, None, name)
+    }
+
+    pub(in crate::codegen) fn build_procedure<
+        TArguments,
+        TProcedure: Procedure<'ctx, TArguments>,
+    >(
+        &mut self,
+        visibility: FunctionVisibility,
+        build: impl Fn(FunctionValue<'ctx>, &CodegenContext, &Module<'ctx>),
+    ) -> TProcedure {
+        let signature = TProcedure::llvm_type(self.codegen_context.llvm_context());
+        let function = self.module.add_function(TProcedure::NAME, signature, None);
+
+        build(function, self.codegen_context, &self.module);
+
+        if visibility == FunctionVisibility::Public {
+            self.public_functions.0.insert(
+                TProcedure::NAME.to_string(),
+                PublicFunction(Box::new(move |module| {
+                    module.add_function(TProcedure::NAME, signature, Some(Linkage::External))
+                })),
+            );
+        }
+
+        TProcedure::new(function)
+    }
+
+    pub(in crate::codegen) fn build_function<
+        TReturn: LlvmRepresentation<'ctx>,
+        TArguments,
+        TFunction: Function<'ctx, TReturn, TArguments>,
+    >(
+        &mut self,
+        visibility: FunctionVisibility,
+        build: impl Fn(FunctionValue<'ctx>, &CodegenContext, &Module<'ctx>),
+    ) -> TFunction {
+        let signature = TFunction::llvm_type(self.codegen_context.llvm_context());
+        let function = self.module.add_function(TFunction::NAME, signature, None);
+
+        build(function, self.codegen_context, &self.module);
+
+        if visibility == FunctionVisibility::Public {
+            self.public_functions.0.insert(
+                TFunction::NAME.to_string(),
+                PublicFunction(Box::new(move |module| {
+                    module.add_function(TFunction::NAME, signature, Some(Linkage::External))
+                })),
+            );
+        }
+
+        TFunction::new(function)
     }
 
     pub fn build(self) -> (Module<'ctx>, PublicFunctionLinks<'ctx>) {
@@ -160,33 +223,5 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
             .set_initializer(&global_constructor_type.const_array(&constructors));
 
         (module, public_functions)
-    }
-
-    pub(crate) fn add_global(&self, r#type: impl BasicType<'ctx>, name: &str) -> GlobalValue<'ctx> {
-        self.module.add_global(r#type, None, name)
-    }
-
-    pub(in crate::codegen) fn build_function(
-        &mut self,
-        name: &str,
-        visibility: FunctionVisibility,
-        signature: FunctionType<'ctx>,
-        build: impl Fn(FunctionValue<'ctx>, &CodegenContext, &Module<'ctx>),
-    ) -> FunctionValue<'ctx> {
-        let function = self.module.add_function(name, signature, None);
-
-        build(function, self.codegen_context, &self.module);
-
-        if visibility == FunctionVisibility::Public {
-            let name = name.to_string();
-            self.public_functions.0.insert(
-                name.to_string(),
-                PublicFunction(Box::new(move |module| {
-                    module.add_function(&name, signature, Some(Linkage::External))
-                })),
-            );
-        }
-
-        function
     }
 }

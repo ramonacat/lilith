@@ -13,8 +13,8 @@
       packages = with pkgs; [
         libffi
         libxml2
-        lldb
-        llvm
+        lldb_18
+        llvm_18
         nil
         valgrind
       ];

@@ -1,6 +1,6 @@
-mod add;
-mod get;
-mod initializer;
+pub(in crate::codegen) mod add;
+pub(in crate::codegen) mod get;
+pub(in crate::codegen) mod initializer;
 
 use std::collections::HashMap;
 
@@ -73,15 +73,11 @@ impl<'ctx> TypeStoreModule<'ctx> {
                 .const_zero(),
         );
 
-        let type_store_initializer = make_type_store_initializer(
-            codegen_context,
-            &mut module_builder,
-            type_store.as_pointer_value(),
-        );
+        let type_store_initializer =
+            make_type_store_initializer(&mut module_builder, type_store.as_pointer_value());
 
-        module_builder.add_global_constructor(0, type_store_initializer, Some(type_store));
+        module_builder.add_global_constructor(0, &type_store_initializer, Some(type_store));
         make_add(
-            codegen_context,
             &mut module_builder,
             codegen_context
                 .types_types()
@@ -90,7 +86,6 @@ impl<'ctx> TypeStoreModule<'ctx> {
                 .opaque_pointer(type_store.as_pointer_value()),
         );
         make_get(
-            codegen_context,
             &mut module_builder,
             codegen_context
                 .types_types()

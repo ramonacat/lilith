@@ -1,24 +1,19 @@
 use inkwell::IntPredicate;
 
 use super::TypeStoreOpaquePointer;
-use crate::codegen::{
-    ContextErgonomics as _,
-    context::{CodegenContext, type_maker::TypeDeclaration},
-    module,
+use crate::{
+    bytecode::Value,
+    codegen::{ContextErgonomics as _, context::CodegenContext, module},
 };
 
+make_function_type!(TypeStoreAdd, (id:u32, value: *const Value));
+
 pub(super) fn make_add<'ctx>(
-    codegen_context: &CodegenContext<'ctx>,
     module_builder: &mut module::ModuleBuilder<'ctx, '_>,
     type_store: TypeStoreOpaquePointer<'ctx>,
 ) {
-    module_builder.build_function(
-        "add",
+    module_builder.build_procedure::<_, TypeStoreAdd>(
         module::FunctionVisibility::Public,
-        codegen_context
-            .type_maker()
-            // TODO make some cleaner API for named arguments
-            .make_function(None, &[TypeDeclaration::U32, TypeDeclaration::Pointer]),
         |function, codegen_context, _module| {
             let builder = codegen_context.llvm_context().create_builder();
             let entry = codegen_context

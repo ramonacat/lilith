@@ -4,9 +4,12 @@ use debug::debug_type_definition_impl;
 use inkwell::{execution_engine::ExecutionEngine, module::Module};
 
 use super::{
-    context::{CodegenContext, type_maker::TypeDeclaration},
+    context::{CodegenContext, type_maker::Procedure},
     types::value::Value,
 };
+use crate::make_function_type;
+
+make_function_type!(DebugTypeDefinition, (value: *const Value));
 
 pub(in crate::codegen) fn register<'ctx>(
     execution_engine: &ExecutionEngine<'ctx>,
@@ -15,9 +18,8 @@ pub(in crate::codegen) fn register<'ctx>(
 ) {
     let debug_type_definition = module.add_function(
         "debug_type_definition",
-        codegen_context
-            .type_maker()
-            .make_function(None, &[TypeDeclaration::Pointer]),
+        // this should really be a type argument, and not a value argument
+        DebugTypeDefinition::llvm_type(codegen_context.llvm_context()),
         None,
     );
 

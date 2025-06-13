@@ -1,59 +1,164 @@
 use inkwell::{
-    AddressSpace,
+    builder::Builder,
     context::Context,
-    types::{BasicType as _, BasicTypeEnum, FunctionType},
+    types::FunctionType,
+    values::{FunctionValue, GlobalValue},
 };
 
-#[derive(Clone, Copy)]
-pub(in crate::codegen) enum TypeDeclaration {
-    // TODO add U*
-    U32,
-    U64,
-    // TODO add S* (signed types - these will require some type-level indirection, as those are the
-    // same as unsigned, just with different instructions used on them)
-    // TODO add F*
+use crate::codegen::llvm_struct::representations::LlvmRepresentation;
 
-    // TODO should we separate DataPointer and FunctionPointer?
-    Pointer,
-    // TODO How would we go about returning structs or functions here? or do we not care and just
-    // ooperate on pointers to values?
-}
+// TODO the Procedure/Function duality exists mostly because VoidType in inkwell is not BasicType
+// and this complicates... everything. But maybe there's a way to avoid having those as separate
+// traits?
+// TODO There's a lot of repeated code all around here, clean it up
+pub(in crate::codegen) trait Procedure<'ctx, TArguments> {
+    const NAME: &'static str;
 
-#[derive(Debug)]
-pub(in crate::codegen) struct TypeMaker<'ctx> {
-    context: &'ctx Context,
-}
+    fn llvm_type(context: &'ctx Context) -> FunctionType<'ctx>;
 
-impl<'ctx> TypeMaker<'ctx> {
-    pub const fn new(context: &'ctx Context) -> Self {
-        Self { context }
-    }
-
-    // TODO we might add another layer of type indirection here, so that e.g. structs can be
-    // represented
-    pub fn make(&self, declaration: TypeDeclaration) -> BasicTypeEnum<'ctx> {
-        match declaration {
-            TypeDeclaration::U32 => self.context.i32_type().into(),
-            TypeDeclaration::U64 => self.context.i64_type().into(),
-            TypeDeclaration::Pointer => self.context.ptr_type(AddressSpace::default()).into(),
-        }
-    }
-
-    pub fn make_function(
+    fn new(value: FunctionValue<'ctx>) -> Self;
+    #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
+    // types exactly and can actually do strongly typed calls
+    fn build_call(
         &self,
-        return_type: Option<TypeDeclaration>,
-        arguments: &[TypeDeclaration],
-    ) -> FunctionType<'ctx> {
-        let arguments = arguments
-            .iter()
-            .map(|x| self.make(*x).into())
-            .collect::<Vec<_>>();
+        builder: &Builder<'ctx>,
+        function: FunctionValue<'ctx>,
+        arguments: TArguments,
+    );
+    // TODO I don't love that API, it is required for global constructors, can we get rid of it? I
+    // don't feel like we should expose the function pointer directly...
+    fn as_global_value(&self) -> GlobalValue<'ctx>;
+}
 
-        return_type.map_or_else(
-            || self.context.void_type().fn_type(&arguments, false),
-            |return_type| self.make(return_type).fn_type(&arguments, false),
+pub(in crate::codegen) trait Function<'ctx, TReturn: LlvmRepresentation<'ctx>, TArguments> {
+    const NAME: &'static str;
+
+    fn llvm_type(context: &'ctx Context) -> FunctionType<'ctx>;
+
+    fn new(value: FunctionValue<'ctx>) -> Self;
+    #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
+    // types exactly and can actually do strongly typed calls
+    fn build_call(
+        &self,
+        builder: &Builder<'ctx>,
+        function: FunctionValue<'ctx>,
+        arguments: TArguments,
+    ) -> TReturn::LlvmValue;
+}
+
+#[macro_export]
+macro_rules! make_llvm_type_instance {
+    ($context:expr, $type:ty) => {
+        <$type as $crate::codegen::llvm_struct::representations::LlvmRepresentation>::llvm_type(
+            $context,
         )
-    }
+    };
+}
 
-    // TODO add a make_struct function that will replace the named_struct from context_ergonomics
+#[macro_export]
+macro_rules! make_llvm_value_type {
+    ($type:ty) => {
+        <$type as $crate::codegen::llvm_struct::representations::LlvmRepresentation<'ctx>>::LlvmValue
+    };
+}
+
+#[macro_export]
+macro_rules! make_function_type {
+    ($name:ident, ($($argument_name:ident: $argument:ty),*)) => {
+        pub(in $crate::codegen) struct $name<'ctx> {
+            value: inkwell::values::FunctionValue<'ctx>
+        }
+
+        #[allow(unused_parens)]
+        impl<'ctx> $crate::codegen::context::type_maker::Procedure<
+            'ctx, ($($crate::make_llvm_value_type!($argument)),*)
+        > for $name<'ctx> {
+            const NAME: &'static str = stringify!($name);
+
+            fn new(value: inkwell::values::FunctionValue<'ctx>) -> Self {
+                Self { value }
+            }
+
+            // TODO can CodegenContext implement Context(if it's a trait) maybeee? or maybe we can
+            // have some common trait, to just avoid going deep into properties at call sites
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> inkwell::types::FunctionType<'ctx> {
+                context.void_type().fn_type(&[
+                    $(
+                        $crate::make_llvm_type_instance!(context, $argument).into()
+                    ),*
+                ], false)
+            }
+
+            fn build_call(
+                &self,
+                builder: &inkwell::builder::Builder<'ctx>,
+                function: inkwell::values::FunctionValue<'ctx>,
+                arguments: ($($crate::make_llvm_value_type!($argument)),*)
+            ) {
+                let ($($argument_name),*) = arguments;
+
+                builder.build_call(
+                    function,
+                    &[
+                        $($argument_name.into()),*
+                    ],
+                    stringify!($name)
+                ).unwrap();
+            }
+
+            fn as_global_value(&self) -> inkwell::values::GlobalValue<'ctx> {
+                self.value.as_global_value()
+            }
+        }
+    };
+
+    ($name:ident, ($($argument_name:ident: $argument:ty),*): $return_type:ty) => {
+        pub(in $crate::codegen) struct $name<'ctx> {
+            #[allow(unused)]
+            value: inkwell::values::FunctionValue<'ctx>,
+        }
+
+        #[allow(unused_parens)]
+        impl<'ctx> $crate::codegen::context::type_maker::Function<
+            'ctx,
+            $return_type,
+            ($($crate::make_llvm_value_type!($argument)),*)
+        > for $name<'ctx> {
+            const NAME: &'static str = stringify!($name);
+
+            // TODO can CodegenContext implement Context(if it's a trait) maybeee? or maybe we can
+            // have some common trait, to just avoid going deep into properties at call sites
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> inkwell::types::FunctionType<'ctx> {
+                let return_type = $crate::make_llvm_type_instance!(context, $return_type);
+
+                return_type.fn_type(&[
+                    $(
+                        $crate::make_llvm_type_instance!(context, $argument).into()
+                    ),*
+                ], false)
+            }
+
+            fn new(value: inkwell::values::FunctionValue<'ctx>) -> Self {
+                Self { value }
+            }
+
+
+            fn build_call(
+                &self,
+                builder: &inkwell::builder::Builder<'ctx>,
+                function: inkwell::values::FunctionValue<'ctx>,
+                arguments: ($($crate::make_llvm_value_type!($argument)),*)
+            ) -> $crate::make_llvm_value_type!($return_type) {
+                let ($($argument_name),*) = arguments;
+
+                builder.build_call(
+                    function,
+                    &[
+                        $($argument_name.into()),*
+                    ],
+                    stringify!($name)
+                ).unwrap().try_as_basic_value().unwrap_left().try_into().unwrap()
+            }
+        }
+    };
 }

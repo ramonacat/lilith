@@ -1,4 +1,5 @@
 pub(in crate::codegen) mod builtins;
+#[macro_use]
 pub(in crate::codegen) mod context;
 pub(in crate::codegen) mod context_ergonomics;
 #[macro_use]
@@ -9,9 +10,13 @@ pub(in crate::codegen) mod types;
 
 use std::collections::HashMap;
 
-use context::CodegenContext;
+use context::{
+    CodegenContext,
+    type_maker::{Function, Procedure as _},
+};
 use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
+use type_store::{add::TypeStoreAdd, get::TypeStoreGet};
 use types::value::ValueOpaquePointer;
 
 use crate::{
@@ -105,7 +110,7 @@ impl<'ctx> CodeGen<'ctx> {
             arguments,
         );
 
-        let add_type_func = type_store_api.get("add").unwrap();
+        let add_type_func = type_store_api.get(TypeStoreAdd::NAME).unwrap();
         builder
             .build_call(
                 *add_type_func,
@@ -117,7 +122,7 @@ impl<'ctx> CodeGen<'ctx> {
             )
             .unwrap();
 
-        let get_type_func = type_store_api.get("get").unwrap();
+        let get_type_func = type_store_api.get(TypeStoreGet::NAME).unwrap();
         let first_type = builder
             .build_call(
                 *get_type_func,

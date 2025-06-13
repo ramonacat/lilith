@@ -1,23 +1,19 @@
+#[macro_use]
 pub(in crate::codegen) mod type_maker;
 
 use inkwell::context::Context;
 
 use super::types::{Types, ValueTypes, functions::FunctionTypes, primitive::PrimitiveTypes};
-use crate::codegen::{context::type_maker::TypeMaker, types::types::TypesTypes};
+use crate::codegen::types::types::TypesTypes;
 
 pub struct CodegenContext<'ctx> {
     llvm_context: &'ctx Context,
-    type_maker: TypeMaker<'ctx>,
     types: Types<'ctx>,
 }
 
 impl<'ctx> CodegenContext<'ctx> {
     pub(crate) const fn llvm_context(&self) -> &'ctx Context {
         self.llvm_context
-    }
-
-    pub(crate) const fn type_maker(&self) -> &TypeMaker<'ctx> {
-        &self.type_maker
     }
 
     pub(crate) const fn function_types(&self) -> &FunctionTypes<'ctx> {
@@ -45,7 +41,6 @@ impl<'ctx> CodegenContext<'ctx> {
         Self {
             llvm_context: context,
             types,
-            type_maker: TypeMaker::new(context),
         }
     }
 }
