@@ -10,7 +10,7 @@ use inkwell::{
 use super::{
     builtins::DebugTypeDefinition,
     context::{
-        CodegenContext,
+        AsLlvmContext, CodegenContext,
         type_maker::{Function, Procedure},
     },
 };
@@ -33,21 +33,21 @@ llvm_struct! {
 
 pub fn register<'ctx, 'codegen>(
     codegen_context: &'codegen CodegenContext<'ctx>,
-) -> ModuleBuilderProvider<'ctx, 'codegen> {
+) -> ModuleBuilderProvider<'ctx, 'codegen, &'codegen CodegenContext<'ctx>> {
     ModuleBuilderProvider {
-        global_constructors_provider: GlobalConstructorProvider::register(
-            codegen_context.llvm_context(),
-        ),
+        global_constructors_provider: GlobalConstructorProvider::register(codegen_context),
         codegen_context,
     }
 }
 
-pub(in crate::codegen) struct ModuleBuilderProvider<'ctx, 'codegen> {
-    global_constructors_provider: GlobalConstructorProvider<'ctx>,
+pub(in crate::codegen) struct ModuleBuilderProvider<'ctx, 'codegen, TContext: AsLlvmContext<'ctx>> {
+    global_constructors_provider: GlobalConstructorProvider<'ctx, TContext>,
     codegen_context: &'codegen CodegenContext<'ctx>,
 }
 
-impl<'ctx, 'codegen> ModuleBuilderProvider<'ctx, 'codegen> {
+impl<'ctx, 'codegen, TContext: AsLlvmContext<'ctx>>
+    ModuleBuilderProvider<'ctx, 'codegen, TContext>
+{
     pub fn make_builder(&self, name: &str) -> ModuleBuilder<'ctx, 'codegen> {
         ModuleBuilder::new(
             name,
@@ -76,7 +76,7 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         // should really invest into some real debug infrastructure
         module.add_function(
             "debug_type_definition",
-            DebugTypeDefinition::llvm_type(codegen_context.llvm_context()),
+            DebugTypeDefinition::llvm_type(codegen_context),
             None,
         );
         Self {
@@ -117,9 +117,9 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         TProcedure: Procedure<'ctx, TArguments>,
     >(
         &self,
-        build: impl Fn(FunctionValue<'ctx>, &CodegenContext, &Module<'ctx>),
+        build: impl Fn(FunctionValue<'ctx>, &CodegenContext<'ctx>, &Module<'ctx>),
     ) -> TProcedure {
-        let signature = TProcedure::llvm_type(self.codegen_context.llvm_context());
+        let signature = TProcedure::llvm_type(self.codegen_context);
         let function = self.module.add_function(TProcedure::NAME, signature, None);
 
         build(function, self.codegen_context, &self.module);
@@ -133,9 +133,9 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         TFunction: Function<'ctx, TReturn, TArguments>,
     >(
         &self,
-        build: impl Fn(FunctionValue<'ctx>, &CodegenContext, &Module<'ctx>),
+        build: impl Fn(FunctionValue<'ctx>, &CodegenContext<'ctx>, &Module<'ctx>),
     ) -> TFunction {
-        let signature = TFunction::llvm_type(self.codegen_context.llvm_context());
+        let signature = TFunction::llvm_type(self.codegen_context);
         let function = self.module.add_function(TFunction::NAME, signature, None);
 
         build(function, self.codegen_context, &self.module);

@@ -1,11 +1,11 @@
 use super::TypeStoreOpaquePointer;
-use crate::codegen::{module, types::value::Value};
+use crate::codegen::{AsLlvmContext, module, types::value::Value};
 
 make_function_type!(TypeStoreGet, (id: u64): *const Value);
 
-pub(super) fn make_get<'ctx>(
+pub(super) fn make_get<'ctx, TContext: AsLlvmContext<'ctx>>(
     module_builder: &module::ModuleBuilder<'ctx, '_>,
-    type_store: TypeStoreOpaquePointer<'ctx>,
+    type_store: TypeStoreOpaquePointer<'ctx, TContext>,
 ) -> TypeStoreGet<'ctx> {
     module_builder.build_function::<_, _, TypeStoreGet>(|function, codegen_context, module| {
         let builder = codegen_context.llvm_context().create_builder();

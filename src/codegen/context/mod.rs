@@ -6,9 +6,25 @@ use inkwell::context::Context;
 use super::types::{Types, ValueTypes, functions::FunctionTypes, primitive::PrimitiveTypes};
 use crate::codegen::types::types::TypesTypes;
 
+pub(in crate::codegen) trait AsLlvmContext<'ctx>: Copy {
+    fn llvm_context(self) -> &'ctx Context;
+}
+
+impl<'ctx> AsLlvmContext<'ctx> for &CodegenContext<'ctx> {
+    fn llvm_context(self) -> &'ctx Context {
+        self.llvm_context
+    }
+}
+
+impl<'ctx> AsLlvmContext<'ctx> for &'ctx Context {
+    fn llvm_context(self) -> &'ctx Context {
+        self
+    }
+}
+
 pub struct CodegenContext<'ctx> {
     llvm_context: &'ctx Context,
-    types: Types<'ctx>,
+    types: Types<'ctx, &'ctx Context>,
 }
 
 impl<'ctx> CodegenContext<'ctx> {
@@ -16,19 +32,19 @@ impl<'ctx> CodegenContext<'ctx> {
         self.llvm_context
     }
 
-    pub(crate) const fn function_types(&self) -> &FunctionTypes<'ctx> {
+    pub(crate) const fn function_types(&self) -> &FunctionTypes<'ctx, &'ctx Context> {
         self.types.function()
     }
 
-    pub(crate) const fn primitive_types(&self) -> &PrimitiveTypes<'ctx> {
+    pub(crate) const fn primitive_types(&self) -> &PrimitiveTypes<'ctx, &'ctx Context> {
         self.types.primitive()
     }
 
-    pub(crate) const fn value_types(&self) -> &ValueTypes<'ctx> {
+    pub(crate) const fn value_types(&self) -> &ValueTypes<'ctx, &'ctx Context> {
         self.types.value()
     }
 
-    pub(crate) const fn types_types(&self) -> &TypesTypes<'ctx> {
+    pub(crate) const fn types_types(&self) -> &TypesTypes<'ctx, &'ctx Context> {
         self.types.types()
     }
 

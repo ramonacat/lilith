@@ -7,6 +7,7 @@ use super::ClassId;
 use crate::{
     bytecode::TypeTag,
     codegen::{
+        context::AsLlvmContext,
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
         types::ValueTypes,
@@ -24,7 +25,7 @@ llvm_struct! {
     }
 }
 
-impl<'ctx> ValueTypes<'ctx> {
+impl<'ctx, TContext: AsLlvmContext<'ctx>> ValueTypes<'ctx, TContext> {
     pub(in crate::codegen) fn make_tag(&self, tag: TypeTag) -> IntValue<'ctx> {
         self.context.const_u8(tag as u8)
     }
@@ -39,7 +40,7 @@ impl<'ctx> ValueTypes<'ctx> {
         class_id: IntValue<'ctx>,
         value: IntValue<'ctx>,
         builder: &Builder<'ctx>,
-    ) -> ValueOpaquePointer<'ctx> {
+    ) -> ValueOpaquePointer<'ctx, TContext> {
         let target = builder
             .build_malloc(self.value_type.llvm_type(), "target")
             .unwrap();

@@ -11,7 +11,7 @@ pub(in crate::codegen) mod types;
 use std::collections::HashMap;
 
 use context::{
-    CodegenContext,
+    AsLlvmContext, CodegenContext,
     type_maker::{Function, Procedure as _},
 };
 use context_ergonomics::ContextErgonomics;
@@ -27,7 +27,7 @@ use crate::{
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
-    scope: HashMap<Identifier, ValueOpaquePointer<'ctx>>,
+    scope: HashMap<Identifier, ValueOpaquePointer<'ctx, &'ctx Context>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -45,7 +45,7 @@ impl<'ctx> CodeGen<'ctx> {
         // more level of abstraction tho, idk)
         builder: &Builder<'ctx>,
         codegen_context: &CodegenContext<'ctx>,
-    ) -> ValueOpaquePointer<'ctx> {
+    ) -> ValueOpaquePointer<'ctx, &'ctx Context> {
         match expression {
             Expression::Add(left, right) => {
                 // TODO we should check if either of the values implements an interface that allows
@@ -171,7 +171,7 @@ impl<'ctx> CodeGen<'ctx> {
         value: crate::bytecode::Value,
         builder: &Builder<'ctx>,
         codegen_context: &CodegenContext<'ctx>,
-    ) -> ValueOpaquePointer<'ctx> {
+    ) -> ValueOpaquePointer<'ctx, &'ctx Context> {
         match value {
             crate::bytecode::Value::Literal(const_value) => {
                 // TODO add some comfort methods for simple i*_type constants

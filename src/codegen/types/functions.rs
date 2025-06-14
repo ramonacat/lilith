@@ -1,6 +1,5 @@
 use inkwell::{
     builder::Builder,
-    context::Context,
     values::{IntValue, PointerValue},
 };
 
@@ -8,6 +7,7 @@ use super::{ValueTypes, value::ValueOpaquePointer};
 use crate::{
     bytecode::{Identifier, TypeId, TypeTag},
     codegen::{
+        context::AsLlvmContext,
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
         types::ClassId,
@@ -31,11 +31,11 @@ llvm_struct! {
     }
 }
 
-pub(in crate::codegen) struct FunctionTypes<'ctx> {
-    basic: ValueTypes<'ctx>,
-    function_argument_type: FunctionArgumentProvider<'ctx>,
-    function_signature_type: FunctionSignatureProvider<'ctx>,
-    context: &'ctx Context,
+pub(in crate::codegen) struct FunctionTypes<'ctx, TContext: AsLlvmContext<'ctx>> {
+    basic: ValueTypes<'ctx, TContext>,
+    function_argument_type: FunctionArgumentProvider<'ctx, TContext>,
+    function_signature_type: FunctionSignatureProvider<'ctx, TContext>,
+    context: TContext,
 }
 
 pub(in crate::codegen) struct ArgumentType<'ctx> {
@@ -49,8 +49,8 @@ impl<'ctx> ArgumentType<'ctx> {
     }
 }
 
-impl<'ctx> FunctionTypes<'ctx> {
-    pub fn new(context: &'ctx Context, basic: ValueTypes<'ctx>) -> Self {
+impl<'ctx, TContext: AsLlvmContext<'ctx>> FunctionTypes<'ctx, TContext> {
+    pub fn new(context: TContext, basic: ValueTypes<'ctx, TContext>) -> Self {
         Self {
             function_argument_type: FunctionArgumentProvider::register(context),
             function_signature_type: FunctionSignatureProvider::register(context),
@@ -78,6 +78,7 @@ impl<'ctx> FunctionTypes<'ctx> {
             .build_array_malloc(
                 self.function_argument_type.llvm_type(),
                 self.context
+                    .llvm_context()
                     .const_u32(u32::try_from(arguments.len()).unwrap() + 1),
                 "arguments_allocation",
             )
@@ -113,7 +114,7 @@ impl<'ctx> FunctionTypes<'ctx> {
         class_id: IntValue<'ctx>,
         return_type: IntValue<'ctx>,
         arguments: PointerValue<'ctx>,
-    ) -> ValueOpaquePointer<'ctx> {
+    ) -> ValueOpaquePointer<'ctx, TContext> {
         let signature_ptr = builder
             .build_malloc(self.function_signature_type.llvm_type(), "signature_ptr")
             .unwrap();
@@ -128,7 +129,11 @@ impl<'ctx> FunctionTypes<'ctx> {
         );
 
         let signature_u64 = builder
-            .build_ptr_to_int(signature_ptr, self.context.i64_type(), "signature_u64")
+            .build_ptr_to_int(
+                signature_ptr,
+                self.context.llvm_context().i64_type(),
+                "signature_u64",
+            )
             .unwrap();
 
         self.basic.make_value(

@@ -1,4 +1,4 @@
-use inkwell::{module::Module, values::PointerValue};
+use inkwell::{context::Context, module::Module, values::PointerValue};
 
 use crate::codegen::{
     context::{
@@ -15,7 +15,7 @@ use add::{TypeStoreAdd, make_add};
 use get::{TypeStoreGet, make_get};
 use initializer::make_type_store_initializer;
 
-use super::{module, module::built_module::ModuleInterface};
+use super::module::{self, built_module::ModuleInterface};
 use crate::{
     codegen::{
         context_ergonomics::ContextErgonomics,
@@ -49,10 +49,10 @@ make_module_interface!(@builder(TypeStoreBuilderImpl<'ctx>) struct TypeStoreInte
 });
 
 pub(in crate::codegen) struct TypeStoreBuilderImpl<'ctx> {
-    type_store: TypeStoreOpaquePointer<'ctx>,
+    type_store: TypeStoreOpaquePointer<'ctx, &'ctx Context>,
 }
 
-impl<'ctx> TypeStoreInterfaceBuilder<'ctx> for TypeStoreBuilderImpl<'ctx> {
+impl<'ctx> TypeStoreInterfaceBuilder<'ctx, '_> for TypeStoreBuilderImpl<'ctx> {
     fn add(
         &self,
         builder: &mut ModuleBuilder<'ctx, '_>,

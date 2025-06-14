@@ -1,14 +1,17 @@
 use inkwell::module::Module;
 
-use crate::codegen::{context::CodegenContext, module::ModuleBuilder};
+use crate::codegen::{
+    context::{AsLlvmContext, CodegenContext},
+    module::ModuleBuilder,
+};
 
-pub(in crate::codegen) trait ModuleInterface<'ctx, TBuilder> {
+pub(in crate::codegen) trait ModuleInterface<'ctx, 'codegen, TBuilder> {
     fn register(
         builder: &TBuilder,
-        module_builder: &mut ModuleBuilder<'ctx, '_>,
+        module_builder: &mut ModuleBuilder<'ctx, 'codegen>,
         codegen_context: &CodegenContext<'ctx>,
     ) -> Self;
-    fn expose_to(other: &Module<'ctx>, context: &'ctx inkwell::context::Context) -> Self;
+    fn expose_to(other: &Module<'ctx>, context: impl AsLlvmContext<'ctx>) -> Self;
 }
 
 #[macro_export]
@@ -17,11 +20,11 @@ macro_rules! make_module_interface {
         $($field_name:ident: $field_type:ty),+
     }) => {
         paste::paste!{
-            pub(in $crate::codegen) trait [<$name Builder>]<'ctx> {
+            pub(in $crate::codegen) trait [<$name Builder>]<'ctx, 'codegen> {
                 $(
                     fn $field_name(
                         &self,
-                        builder: &mut $crate::codegen::module::ModuleBuilder<'ctx, '_>,
+                        builder: &mut $crate::codegen::module::ModuleBuilder<'ctx, 'codegen>,
                         codegen_context: &$crate::codegen::context::CodegenContext<'ctx>
                     ) -> $field_type;
                 )+
@@ -32,10 +35,10 @@ macro_rules! make_module_interface {
             $(pub $field_name: $field_type),+
         }
 
-        impl<'ctx> $crate::codegen::module::built_module::ModuleInterface<'ctx, $builder_name> for $name<'ctx> {
+        impl<'ctx, 'codegen> $crate::codegen::module::built_module::ModuleInterface<'ctx, 'codegen, $builder_name> for $name<'ctx> {
             fn register(
                 builder: &$builder_name,
-                module_builder: &mut $crate::codegen::module::ModuleBuilder<'ctx, '_>,
+                module_builder: &mut $crate::codegen::module::ModuleBuilder<'ctx, 'codegen>,
                 codegen_context: &$crate::codegen::context::CodegenContext<'ctx>
         ) -> Self {
                 Self {
@@ -45,7 +48,7 @@ macro_rules! make_module_interface {
 
             fn expose_to(
                 other: &inkwell::module::Module<'ctx>,
-                context: &'ctx inkwell::context::Context
+                context: impl $crate::codegen::context::AsLlvmContext<'ctx>
             ) -> Self {
                 Self {
                     $(
