@@ -19,12 +19,7 @@ pub(in crate::codegen) trait Procedure<'ctx, TArguments> {
     fn new(value: FunctionValue<'ctx>) -> Self;
     #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
     // types exactly and can actually do strongly typed calls
-    fn build_call(
-        &self,
-        builder: &Builder<'ctx>,
-        function: FunctionValue<'ctx>,
-        arguments: TArguments,
-    );
+    fn build_call(&self, builder: &Builder<'ctx>, arguments: TArguments);
     // TODO I don't love that API, it is required for global constructors, can we get rid of it? I
     // don't feel like we should expose the function pointer directly...
     fn as_global_value(&self) -> GlobalValue<'ctx>;
@@ -38,12 +33,7 @@ pub(in crate::codegen) trait Function<'ctx, TReturn: LlvmRepresentation<'ctx>, T
     fn new(value: FunctionValue<'ctx>) -> Self;
     #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
     // types exactly and can actually do strongly typed calls
-    fn build_call(
-        &self,
-        builder: &Builder<'ctx>,
-        function: FunctionValue<'ctx>,
-        arguments: TArguments,
-    ) -> TReturn::LlvmValue;
+    fn build_call(&self, builder: &Builder<'ctx>, arguments: TArguments) -> TReturn::LlvmValue;
 }
 
 #[macro_export]
@@ -92,13 +82,12 @@ macro_rules! make_function_type {
             fn build_call(
                 &self,
                 builder: &inkwell::builder::Builder<'ctx>,
-                function: inkwell::values::FunctionValue<'ctx>,
                 arguments: ($($crate::make_llvm_value_type!($argument)),*)
             ) {
                 let ($($argument_name),*) = arguments;
 
                 builder.build_call(
-                    function,
+                    self.value,
                     &[
                         $($argument_name.into()),*
                     ],
@@ -146,13 +135,12 @@ macro_rules! make_function_type {
             fn build_call(
                 &self,
                 builder: &inkwell::builder::Builder<'ctx>,
-                function: inkwell::values::FunctionValue<'ctx>,
                 arguments: ($($crate::make_llvm_value_type!($argument)),*)
             ) -> $crate::make_llvm_value_type!($return_type) {
                 let ($($argument_name),*) = arguments;
 
                 builder.build_call(
-                    function,
+                    self.value,
                     &[
                         $($argument_name.into()),*
                     ],

@@ -16,7 +16,8 @@ use context::{
 };
 use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
-use type_store::{add::TypeStoreAdd, get::TypeStoreGet};
+use module::built_module::ModuleInterface as _;
+use type_store::TypeStoreInterface;
 use types::value::ValueOpaquePointer;
 
 use crate::{
@@ -93,7 +94,8 @@ impl<'ctx> CodeGen<'ctx> {
 
         let type_store_module = type_store::register(&codegen_context);
         // TODO instead of a HashMap do we want a strongly-typed struct here?
-        let type_store_api = type_store_module.register_api(&module);
+        let type_store_api: TypeStoreInterface =
+            TypeStoreInterface::expose_to(&module, codegen_context.llvm_context());
 
         let arguments = codegen_context.function_types().make_function_arguments(
             &builder,
@@ -110,31 +112,22 @@ impl<'ctx> CodeGen<'ctx> {
             arguments,
         );
 
-        let add_type_func = type_store_api.get(TypeStoreAdd::NAME).unwrap();
-        builder
-            .build_call(
-                *add_type_func,
-                &[
-                    codegen_context.llvm_context().const_u32(1024).into(),
-                    signature.ptr().into(),
-                ],
-                "add_type_signature",
-            )
-            .unwrap();
+        type_store_api.add.build_call(
+            &builder,
+            (
+                codegen_context.llvm_context().const_u32(1024),
+                signature.ptr(),
+            ),
+        );
 
-        let get_type_func = type_store_api.get(TypeStoreGet::NAME).unwrap();
-        let first_type = builder
-            .build_call(
-                *get_type_func,
-                &[self.context.const_u64(1024).into()],
-                "get_first_type",
-            )
-            .unwrap();
+        let first_type = type_store_api
+            .get
+            .build_call(&builder, self.context.const_u64(1024));
 
         builder
             .build_call(
                 module.get_function("debug_type_definition").unwrap(),
-                &[first_type.try_as_basic_value().unwrap_left().into()],
+                &[first_type.into()],
                 "type_definition_debug",
             )
             .unwrap();
@@ -154,10 +147,13 @@ impl<'ctx> CodeGen<'ctx> {
             builder.build_return(None).unwrap();
         }
 
+        type_store_module.print_to_stderr();
+        type_store_module.verify().unwrap();
+
         module.print_to_stderr();
         module.verify().unwrap();
 
-        module.link_in_module(type_store_module.build()).unwrap();
+        module.link_in_module(type_store_module).unwrap();
 
         execution_engine.run_static_constructors();
         let main = unsafe {

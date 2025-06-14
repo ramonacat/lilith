@@ -1,22 +1,28 @@
+use inkwell::{module::Module, values::PointerValue};
+
+use crate::codegen::{
+    context::{
+        CodegenContext,
+        type_maker::{Function, Procedure},
+    },
+    module::ModuleBuilder,
+};
 pub(in crate::codegen) mod add;
 pub(in crate::codegen) mod get;
 pub(in crate::codegen) mod initializer;
 
-use std::collections::HashMap;
-
-use add::make_add;
-use get::make_get;
+use add::{TypeStoreAdd, make_add};
+use get::{TypeStoreGet, make_get};
 use initializer::make_type_store_initializer;
-use inkwell::{
-    module::Module,
-    values::{FunctionValue, PointerValue},
-};
 
-use super::{context::CodegenContext, module};
-use crate::codegen::{
-    context_ergonomics::ContextErgonomics,
-    llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
-    types::value::Value,
+use super::{module, module::built_module::ModuleInterface};
+use crate::{
+    codegen::{
+        context_ergonomics::ContextErgonomics,
+        llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
+        types::value::Value,
+    },
+    make_module_interface,
 };
 
 // TODO This is good enough for a prototype, but should really be replaced with a hashtable of some
@@ -36,86 +42,71 @@ llvm_struct! {
     }
 }
 
-pub(in crate::codegen) fn register<'ctx>(
-    codegen_context: &CodegenContext<'ctx>,
-) -> TypeStoreModule<'ctx> {
-    TypeStoreModule::new(codegen_context)
+// TODO should we just kill TypeStore and rename this to TypeStore?
+make_module_interface!(@builder(TypeStoreBuilderImpl<'ctx>) struct TypeStoreInterface {
+    add: TypeStoreAdd<'ctx>,
+    get: TypeStoreGet<'ctx>
+});
+
+pub(in crate::codegen) struct TypeStoreBuilderImpl<'ctx> {
+    type_store: TypeStoreOpaquePointer<'ctx>,
 }
 
-pub(in crate::codegen) struct TypeStoreModule<'ctx> {
-    module: Module<'ctx>,
-    api: module::PublicFunctionLinks<'ctx>,
-}
-
-// TODO add methods for getting the types actually
-// TODO generalize the code so we can actually have vectors of any type
-// TODO replace the uses of the old crate::typestore with this
-// TODO create a debug method that will print out the length, capacity, and contained types
-// TODO replace this with a hashmap, so that accessing a type isn't a linear-time ordeal
-impl<'ctx> TypeStoreModule<'ctx> {
-    fn new(codegen_context: &CodegenContext<'ctx>) -> Self {
-        // TODO this should be a part of codegen_context prolly?
-        let module_builder_provider = module::register(codegen_context);
-
-        // TODO we likely want to do some name mangling and have a naming convention and shit for the
-        // builtin modules
-        let mut module_builder = module_builder_provider.make_builder("type_store");
-
-        let type_store = module_builder.add_global(
-            codegen_context.types_types().store().llvm_type(),
-            "type_store",
-        );
-        type_store.set_initializer(
-            &codegen_context
-                .types_types()
-                .store()
-                .llvm_type()
-                .const_zero(),
-        );
-
-        let type_store_initializer =
-            make_type_store_initializer(&mut module_builder, type_store.as_pointer_value());
-
-        module_builder.add_global_constructor(0, &type_store_initializer, Some(type_store));
-        make_add(
-            &mut module_builder,
-            codegen_context
-                .types_types()
-                .store()
-                .provider()
-                .opaque_pointer(type_store.as_pointer_value()),
-        );
-        make_get(
-            &mut module_builder,
-            codegen_context
-                .types_types()
-                .store()
-                .provider()
-                .opaque_pointer(type_store.as_pointer_value()),
-        );
-
-        let module = module_builder.build();
-
-        // TODO these things should not be happening here, but instead at some final linking stage
-        module.0.print_to_stderr();
-        module.0.verify().unwrap();
-
-        Self {
-            module: module.0,
-            api: module.1,
-        }
-    }
-
-    // TODO this should return two things in fact - one is the module, another is the object that
-    // will allow declaring externs for the API exposed here
-    pub(in crate::codegen) fn build(self) -> Module<'ctx> {
-        self.module
-    }
-
-    pub(crate) fn register_api(
+impl<'ctx> TypeStoreInterfaceBuilder<'ctx> for TypeStoreBuilderImpl<'ctx> {
+    fn add(
         &self,
-        module: &Module<'ctx>,
-    ) -> HashMap<String, FunctionValue<'ctx>> {
-        self.api.register(module)
+        builder: &mut ModuleBuilder<'ctx, '_>,
+        _codegen_context: &CodegenContext<'ctx>,
+    ) -> TypeStoreAdd<'ctx> {
+        make_add(builder, self.type_store)
     }
+
+    fn get(
+        &self,
+        builder: &mut ModuleBuilder<'ctx, '_>,
+        _codegen_context: &CodegenContext<'ctx>,
+    ) -> TypeStoreGet<'ctx> {
+        make_get(builder, self.type_store)
+    }
+}
+
+pub(in crate::codegen) fn register<'ctx>(codegen_context: &CodegenContext<'ctx>) -> Module<'ctx> {
+    // TODO this should be a part of codegen_context prolly?
+    let module_builder_provider = module::register(codegen_context);
+
+    // TODO we likely want to do some name mangling and have a naming convention and shit for the
+    // builtin modules
+    let mut module_builder = module_builder_provider.make_builder("type_store");
+    //let module = module_builder_provider.build<TypeStoreInterface>();
+
+    let type_store = module_builder.add_global(
+        codegen_context.types_types().store().llvm_type(),
+        "type_store",
+    );
+    type_store.set_initializer(
+        &codegen_context
+            .types_types()
+            .store()
+            .llvm_type()
+            .const_zero(),
+    );
+
+    let type_store_initializer =
+        make_type_store_initializer(&module_builder, type_store.as_pointer_value());
+
+    module_builder.add_global_constructor(0, &type_store_initializer, Some(type_store));
+
+    TypeStoreInterface::register(
+        &TypeStoreBuilderImpl {
+            type_store: codegen_context
+                .types_types()
+                .store()
+                .provider()
+                .opaque_pointer(type_store.as_pointer_value()),
+        },
+        &mut module_builder,
+        codegen_context,
+    );
+
+    module_builder.build()
 }

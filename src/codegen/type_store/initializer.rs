@@ -6,11 +6,10 @@ use crate::codegen::{
 };
 
 pub(super) fn make_type_store_initializer<'ctx>(
-    module_builder: &mut module::ModuleBuilder<'ctx, '_>,
+    module_builder: &module::ModuleBuilder<'ctx, '_>,
     type_store: PointerValue<'ctx>,
 ) -> GlobalConstructorFunction<'ctx> {
     module_builder.build_procedure::<_, GlobalConstructorFunction>(
-        module::FunctionVisibility::Private,
         |function, codegen_context, _module| {
             let entry = codegen_context
                 .llvm_context()

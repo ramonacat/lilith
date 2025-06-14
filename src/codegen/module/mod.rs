@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+pub(in crate::codegen) mod built_module;
 
 use inkwell::{
     AddressSpace,
@@ -42,12 +42,6 @@ pub fn register<'ctx, 'codegen>(
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub(in crate::codegen) enum FunctionVisibility {
-    Private,
-    Public,
-}
-
 pub(in crate::codegen) struct ModuleBuilderProvider<'ctx, 'codegen> {
     global_constructors_provider: GlobalConstructorProvider<'ctx>,
     codegen_context: &'codegen CodegenContext<'ctx>,
@@ -63,35 +57,12 @@ impl<'ctx, 'codegen> ModuleBuilderProvider<'ctx, 'codegen> {
     }
 }
 
-pub(in crate::codegen) struct PublicFunction<'ctx>(
-    Box<dyn Fn(&Module<'ctx>) -> FunctionValue<'ctx> + 'ctx>,
-);
-// TODO the key sould be an Identifier, not a string
-pub(in crate::codegen) struct PublicFunctionLinks<'ctx>(HashMap<String, PublicFunction<'ctx>>);
-
-impl<'ctx> PublicFunctionLinks<'ctx> {
-    pub(in crate::codegen) fn register(
-        &self,
-        module: &Module<'ctx>,
-    ) -> HashMap<String, FunctionValue<'ctx>> {
-        let mut result = HashMap::new();
-
-        for (name, function) in &self.0 {
-            let function_value = function.0(module);
-            result.insert(name.to_string(), function_value);
-        }
-
-        result
-    }
-}
-
 pub(in crate::codegen) struct ModuleBuilder<'ctx, 'codegen> {
     module: Module<'ctx>,
     global_constructors: Vec<GlobalConstructorOpaque<'ctx>>,
     global_constructor_type: StructType<'ctx>,
 
     codegen_context: &'codegen CodegenContext<'ctx>,
-    public_functions: PublicFunctionLinks<'ctx>,
 }
 
 impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
@@ -113,7 +84,6 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
             global_constructors: vec![],
             global_constructor_type,
             codegen_context,
-            public_functions: PublicFunctionLinks(HashMap::new()),
         }
     }
 
@@ -146,23 +116,13 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         TArguments,
         TProcedure: Procedure<'ctx, TArguments>,
     >(
-        &mut self,
-        visibility: FunctionVisibility,
+        &self,
         build: impl Fn(FunctionValue<'ctx>, &CodegenContext, &Module<'ctx>),
     ) -> TProcedure {
         let signature = TProcedure::llvm_type(self.codegen_context.llvm_context());
         let function = self.module.add_function(TProcedure::NAME, signature, None);
 
         build(function, self.codegen_context, &self.module);
-
-        if visibility == FunctionVisibility::Public {
-            self.public_functions.0.insert(
-                TProcedure::NAME.to_string(),
-                PublicFunction(Box::new(move |module| {
-                    module.add_function(TProcedure::NAME, signature, Some(Linkage::External))
-                })),
-            );
-        }
 
         TProcedure::new(function)
     }
@@ -172,8 +132,7 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         TArguments,
         TFunction: Function<'ctx, TReturn, TArguments>,
     >(
-        &mut self,
-        visibility: FunctionVisibility,
+        &self,
         build: impl Fn(FunctionValue<'ctx>, &CodegenContext, &Module<'ctx>),
     ) -> TFunction {
         let signature = TFunction::llvm_type(self.codegen_context.llvm_context());
@@ -181,25 +140,15 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
 
         build(function, self.codegen_context, &self.module);
 
-        if visibility == FunctionVisibility::Public {
-            self.public_functions.0.insert(
-                TFunction::NAME.to_string(),
-                PublicFunction(Box::new(move |module| {
-                    module.add_function(TFunction::NAME, signature, Some(Linkage::External))
-                })),
-            );
-        }
-
         TFunction::new(function)
     }
 
-    pub fn build(self) -> (Module<'ctx>, PublicFunctionLinks<'ctx>) {
+    pub fn build(self) -> Module<'ctx> {
         let Self {
             module,
             global_constructors,
             global_constructor_type,
             codegen_context: _,
-            public_functions,
         } = self;
 
         let global_constructors_array_type =
@@ -222,6 +171,6 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         global_constructors_value
             .set_initializer(&global_constructor_type.const_array(&constructors));
 
-        (module, public_functions)
+        module
     }
 }
