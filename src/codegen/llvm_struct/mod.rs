@@ -68,10 +68,14 @@ macro_rules! llvm_struct {
             type LlvmType = inkwell::types::StructType<'ctx>;
             type LlvmValue = inkwell::values::StructValue<'ctx>;
 
+            // TODO why do we take the context as ref here? the trait is implemented for refs only
+        // anyway
             fn assert_valid(_context: &impl $crate::codegen::context::AsLlvmContext<'ctx>, _value: Self::LlvmValue) {}
 
+            // TODO why do we take the context as ref here? the trait is implemented for refs only
+        // anyway
             fn llvm_type(context: &impl $crate::codegen::context::AsLlvmContext<'ctx>) -> Self::LlvmType {
-                context.llvm_context().get_struct_type(stringify!($name)).unwrap()
+                paste::paste! { [<$name Provider>]::register(*context).llvm_type() }
             }
         }
 
@@ -211,6 +215,15 @@ macro_rules! llvm_struct {
                     items_allocation
                 }
 
+                // TODO This should take [<$name Opaque>] instead of all the fields
+                // TODO Each field in [<$name Opaque>] should be:
+                //      - for complex types an enum of:
+                //          - (type)Opaque
+                //          - (type)OpaqueValue
+                //      - for primitives:
+                //          - impl BasicValue for (type)
+                //          - (type)
+                //
                 pub(in $crate::codegen) fn make_value(
                     &self,
                     builder: &inkwell::builder::Builder<'ctx>,

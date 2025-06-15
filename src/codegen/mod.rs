@@ -57,9 +57,17 @@ impl<'ctx> CodeGen<'ctx> {
                     .build_int_add(left.get_raw(builder), right.get_raw(builder), "sum_value")
                     .unwrap();
 
-                codegen_context
-                    .primitive_types()
-                    .make_u64(result_value, builder)
+                // TODO the .llvm_context here is needed because the value needs to know the
+                // context type, but perhaps we can switch up to dyn or something there to side-step the
+                // issue (I don't think the value should really have the knowledge of context type)
+                ValueProvider::register(codegen_context.llvm_context()).make_value(
+                    builder,
+                    codegen_context.const_u8(TypeTag::U64 as u8),
+                    codegen_context.const_u8(0),
+                    codegen_context.const_u16(0),
+                    codegen_context.const_u32(0),
+                    result_value,
+                )
             }
             Expression::Assignment(binding, value) => {
                 let expression = self.build_value(value, builder, codegen_context);
