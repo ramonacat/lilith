@@ -1,6 +1,6 @@
 use inkwell::IntPredicate;
 
-use super::TypeStoreOpaquePointer;
+use super::{TypeStoreOpaquePointer, TypeValueProvider};
 use crate::{
     bytecode::Value,
     codegen::{
@@ -54,7 +54,7 @@ pub(super) fn make_add<'ctx, TContext: AsLlvmContext<'ctx>>(
         let store_types = type_store.get_types(&builder);
         let new_value_spot = unsafe {
             builder.build_gep(
-                codegen_context.types_types().value().llvm_type(),
+                TypeValueProvider::register(codegen_context).llvm_type(),
                 store_types,
                 &[store_length],
                 "new_value_spot",
@@ -70,7 +70,7 @@ pub(super) fn make_add<'ctx, TContext: AsLlvmContext<'ctx>>(
             )
             .unwrap();
 
-        codegen_context.types_types().value().provider().fill_in(
+        TypeValueProvider::register(codegen_context).fill_in(
             new_value_spot,
             &builder,
             function.get_first_param().unwrap().into_int_value(),
@@ -113,7 +113,7 @@ fn expand_capacity<'ctx, 'codegen, TContext: AsLlvmContext<'ctx>>(
 
     let new_types = builder
         .build_array_malloc(
-            codegen_context.types_types().value().llvm_type(),
+            TypeValueProvider::register(codegen_context).llvm_type(),
             new_capacity,
             "new_types",
         )

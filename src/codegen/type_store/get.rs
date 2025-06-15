@@ -1,4 +1,4 @@
-use super::TypeStoreOpaquePointer;
+use super::{TypeStoreOpaquePointer, TypeValueProvider};
 use crate::codegen::{AsLlvmContext, ContextErgonomics, module, types::value::Value};
 
 make_function_type!(TypeStoreGet, (id: u64): *const Value);
@@ -14,8 +14,10 @@ pub(super) fn make_get<'ctx, TContext: AsLlvmContext<'ctx>>(
             .append_basic_block(function, "entry");
         builder.position_at_end(entry);
 
+        // TODO the types here should have some kinda array type, so we don't have to duck around
+        // with the GEP manually
         let elements = type_store.get_types(&builder);
-        let element_type = codegen_context.types_types().value().llvm_type();
+        let element_type = TypeValueProvider::register(codegen_context).llvm_type();
 
         let element_ptr = unsafe {
             builder.build_gep(
@@ -29,10 +31,7 @@ pub(super) fn make_get<'ctx, TContext: AsLlvmContext<'ctx>>(
         }
         .unwrap();
 
-        let result = codegen_context
-            .types_types()
-            .value()
-            .provider()
+        let result = TypeValueProvider::register(codegen_context)
             .opaque_pointer(element_ptr)
             .get_type_ptr(&builder);
 

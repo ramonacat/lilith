@@ -1,5 +1,6 @@
 use inkwell::values::PointerValue;
 
+use super::{TypeStoreProvider, TypeValueProvider};
 use crate::codegen::{
     ContextErgonomics as _,
     module::{self, GlobalConstructorFunction},
@@ -20,13 +21,13 @@ pub(super) fn make_type_store_initializer<'ctx>(
             let capacity = codegen_context.llvm_context().const_u32(1);
             let types = builder
                 .build_array_malloc(
-                    codegen_context.types_types().value().llvm_type(),
+                    TypeValueProvider::register(codegen_context).llvm_type(),
                     capacity,
                     "types",
                 )
                 .unwrap();
 
-            codegen_context.types_types().store().provider().fill_in(
+            TypeStoreProvider::register(codegen_context).fill_in(
                 type_store,
                 &builder,
                 types,

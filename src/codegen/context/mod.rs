@@ -3,9 +3,6 @@ pub(in crate::codegen) mod type_maker;
 
 use inkwell::context::Context;
 
-use super::types::Types;
-use crate::codegen::types::types::TypesTypes;
-
 pub(in crate::codegen) trait AsLlvmContext<'ctx>: Copy {
     fn llvm_context(self) -> &'ctx Context;
 }
@@ -22,9 +19,9 @@ impl<'ctx> AsLlvmContext<'ctx> for &'ctx Context {
     }
 }
 
+// TODO get rid of it, and use the raw inkwell Context
 pub struct CodegenContext<'ctx> {
     llvm_context: &'ctx Context,
-    types: Types<'ctx, &'ctx Context>,
 }
 
 impl<'ctx> CodegenContext<'ctx> {
@@ -32,19 +29,9 @@ impl<'ctx> CodegenContext<'ctx> {
         self.llvm_context
     }
 
-    pub(crate) const fn types_types(&self) -> &TypesTypes<'ctx, &'ctx Context> {
-        self.types.types()
-    }
-
-    // TODO we should not take neither the builder nor module here, but instead generate a module
-    // with static constructors and provide an API to accces the declarations here from other
-    // modules as needed
-    pub(crate) fn new(context: &'ctx Context) -> Self {
-        let types = super::types::register(context);
-
+    pub(crate) const fn new(context: &'ctx Context) -> Self {
         Self {
             llvm_context: context,
-            types,
         }
     }
 }

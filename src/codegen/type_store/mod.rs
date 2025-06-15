@@ -77,19 +77,12 @@ pub(in crate::codegen) fn register<'ctx>(codegen_context: &CodegenContext<'ctx>)
     // TODO we likely want to do some name mangling and have a naming convention and shit for the
     // builtin modules
     let mut module_builder = module_builder_provider.make_builder("type_store");
-    //let module = module_builder_provider.build<TypeStoreInterface>();
+    let value_store_provider = TypeStoreProvider::register(codegen_context);
 
-    let type_store = module_builder.add_global(
-        codegen_context.types_types().store().llvm_type(),
-        "type_store",
-    );
-    type_store.set_initializer(
-        &codegen_context
-            .types_types()
-            .store()
-            .llvm_type()
-            .const_zero(),
-    );
+    // TODO separate add_global (that takes optional intializer, otherwise zeroes) and
+    // add_global_import for importing global from other modules
+    let type_store = module_builder.add_global(value_store_provider.llvm_type(), "type_store");
+    type_store.set_initializer(&value_store_provider.llvm_type().const_zero());
 
     let type_store_initializer =
         make_type_store_initializer(&module_builder, type_store.as_pointer_value());
@@ -98,10 +91,7 @@ pub(in crate::codegen) fn register<'ctx>(codegen_context: &CodegenContext<'ctx>)
 
     TypeStoreInterface::register(
         &TypeStoreBuilderImpl {
-            type_store: codegen_context
-                .types_types()
-                .store()
-                .provider()
+            type_store: TypeStoreProvider::register(codegen_context.llvm_context())
                 .opaque_pointer(type_store.as_pointer_value()),
         },
         &mut module_builder,

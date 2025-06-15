@@ -187,6 +187,7 @@ macro_rules! llvm_struct {
                 // TODO Arrays sohuld probably be handled outside here, as actually a generic over
                 // the struct types defined by the macro
                 // TODO this should probably return a stronger type
+                // TODO we should also have make_uninitialized_array
                 pub(in $crate::codegen) fn make_array(
                     &self,
                     builder: &inkwell::builder::Builder<'ctx>,
