@@ -3,7 +3,10 @@ use inkwell::IntPredicate;
 use super::TypeStoreOpaquePointer;
 use crate::{
     bytecode::Value,
-    codegen::{AsLlvmContext, ContextErgonomics as _, context::CodegenContext, module},
+    codegen::{
+        AsLlvmContext, ContextErgonomics as _, context::CodegenContext, module,
+        types::value::ValueProvider,
+    },
 };
 
 make_function_type!(TypeStoreAdd, (id:u32, value: *const Value));
@@ -61,7 +64,7 @@ pub(super) fn make_add<'ctx, TContext: AsLlvmContext<'ctx>>(
 
         let new_value = builder
             .build_load(
-                codegen_context.value_types().llvm_type(),
+                ValueProvider::register(codegen_context).llvm_type(),
                 function.get_nth_param(1).unwrap().into_pointer_value(),
                 "new_value",
             )

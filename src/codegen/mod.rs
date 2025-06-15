@@ -18,12 +18,12 @@ use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
 use module::built_module::ModuleInterface as _;
 use type_store::TypeStoreInterface;
-use types::value::ValueOpaquePointer;
-
-use crate::{
-    bytecode::{ByteCode, ConstValue, Expression, Identifier, TypeTag},
-    codegen::types::functions::ArgumentType,
+use types::{
+    functions::{FunctionArgumentOpaque, FunctionArgumentProvider, FunctionSignatureProvider},
+    value::{ValueOpaquePointer, ValueProvider},
 };
+
+use crate::bytecode::{ByteCode, ConstValue, Expression, Identifier, TypeTag};
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
@@ -95,42 +95,52 @@ impl<'ctx> CodeGen<'ctx> {
         let type_store_module = type_store::register(&codegen_context);
         // TODO instead of a HashMap do we want a strongly-typed struct here?
         let type_store_api: TypeStoreInterface =
-            TypeStoreInterface::expose_to(&module, codegen_context.llvm_context());
+            TypeStoreInterface::expose_to(&module, &codegen_context);
 
-        let arguments = codegen_context.function_types().make_function_arguments(
+        let arguments = FunctionArgumentProvider::register(&codegen_context).make_array(
             &builder,
-            &[ArgumentType::new(
-                self.context.const_u32(1),
-                self.context.const_u32(TypeTag::U64 as u32),
-            )],
+            &[FunctionArgumentOpaque {
+                name: self.context.const_u32(1),
+                type_id: self.context.const_u32(TypeTag::U64 as u32),
+            }],
         );
 
-        let signature = codegen_context.function_types().make_function_signature(
+        let signature_ptr = FunctionSignatureProvider::register(self.context).make_value(
             &builder,
             self.context.const_u16(0),
+            self.context.const_u16(1), // argument count
             self.context.const_u32(TypeTag::U64 as u32),
             arguments,
+        );
+
+        let ptr_int = builder
+            .build_ptr_to_int(
+                signature_ptr.ptr(),
+                self.context.i64_type(),
+                "signature_value_int",
+            )
+            .unwrap();
+
+        let signature_value = ValueProvider::register(self.context).make_value(
+            &builder,
+            self.context.const_u8(TypeTag::FunctionSignature as u8),
+            self.context.const_u8(0),
+            self.context.const_u16(0),
+            self.context.const_u32(0),
+            ptr_int,
         );
 
         type_store_api.add.build_call(
             &builder,
             (
                 codegen_context.llvm_context().const_u32(1024),
-                signature.ptr(),
+                signature_value.ptr(),
             ),
         );
 
-        let first_type = type_store_api
+        let _first_type = type_store_api
             .get
             .build_call(&builder, self.context.const_u64(1024));
-
-        builder
-            .build_call(
-                module.get_function("debug_type_definition").unwrap(),
-                &[first_type.into()],
-                "type_definition_debug",
-            )
-            .unwrap();
 
         let mut result = None;
         for instruction in bytecode.instructions {
@@ -175,13 +185,15 @@ impl<'ctx> CodeGen<'ctx> {
         match value {
             crate::bytecode::Value::Literal(const_value) => {
                 // TODO add some comfort methods for simple i*_type constants
-                codegen_context.value_types().make_value(
+                ValueProvider::register(self.context).make_value(
+                    builder,
                     codegen_context.llvm_context().const_u8(TypeTag::U64 as u8),
+                    codegen_context.llvm_context().const_u8(0),
                     codegen_context.llvm_context().const_u16(0),
+                    codegen_context.llvm_context().const_u32(0),
                     codegen_context.llvm_context().const_u64(match const_value {
                         ConstValue::U64(value) => value,
                     }),
-                    builder,
                 )
             }
             crate::bytecode::Value::Local(identifier) => {

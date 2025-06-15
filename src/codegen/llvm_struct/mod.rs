@@ -81,6 +81,41 @@ macro_rules! llvm_struct {
                 $(pub(in $crate::codegen) $field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
             }
 
+            impl<'ctx> [<$name Opaque>]<'ctx> {
+                pub(in $crate::codegen) fn fill_in<TContext: $crate::codegen::context::AsLlvmContext<'ctx>>(
+                    &self,
+                    target: inkwell::values::PointerValue<'ctx>,
+                    context: TContext,
+                    builder: &inkwell::builder::Builder<'ctx>,
+                ) {
+                    // TODO check why we need a double reference for context here and fix it
+                    let llvm_type = <$name>::llvm_type(&context);
+                    let mut index:u32 = 0;
+
+                    $({
+                        // TODO check why we need a double reference for context here and fix it
+                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&context, self.$field_name);
+
+                        let field_gep = builder
+                            .build_struct_gep(
+                                llvm_type,
+                                target,
+                                index,
+                                stringify!([<$field_name _gep>])
+                            )
+                            .unwrap();
+
+                        builder.build_store(field_gep, self.$field_name).unwrap();
+
+                        // TODO should we make this comptime by using macro recursion tricks?
+                        #[allow(unused_assignments)]
+                        {
+                            index += 1;
+                        }
+                    })+
+                }
+            }
+
             #[derive(Debug, Clone, Copy)]
             pub(in $crate::codegen) struct [<$name OpaquePointer>]<'ctx, TContext: $crate::codegen::context::AsLlvmContext<'ctx>> {
                 pointer: inkwell::values::PointerValue<'ctx>,
@@ -91,6 +126,7 @@ macro_rules! llvm_struct {
             impl<'ctx, TContext: $crate::codegen::context::AsLlvmContext<'ctx>> [<$name OpaquePointer>]<'ctx, TContext> {
                 #[allow(unused)]
                 const fn new(
+                // TODO is this even used? if yes, move to the impl for Opaque
                     pointer: PointerValue<'ctx>,
                     context: TContext,
                     llvm_type: inkwell::types::StructType<'ctx>,
@@ -116,6 +152,7 @@ macro_rules! llvm_struct {
 
             #[allow(unused)]
             impl<'ctx, TContext: $crate::codegen::context::AsLlvmContext<'ctx>> [<$name Provider>]<'ctx, TContext> {
+                // TODO rename to new
                 pub(in $crate::codegen) fn register(context: TContext) -> Self {
                     let llvm_context = context.llvm_context();
                     let llvm_type = llvm_context.named_struct(stringify!($name), &[
@@ -132,6 +169,7 @@ macro_rules! llvm_struct {
                     [<$name OpaquePointer>]::new(pointer, self.context, self.llvm_type)
                 }
 
+                // TODO is this even used? if yes, move to the impl for Opaque
                 #[allow(unused)]
                 pub(in $crate::codegen) fn opaque_to_value(
                     &self,
@@ -142,6 +180,55 @@ macro_rules! llvm_struct {
                     ])
                 }
 
+                // TODO Arrays sohuld probably be handled outside here, as actually a generic over
+                // the struct types defined by the macro
+                // TODO this should probably return a stronger type
+                pub(in $crate::codegen) fn make_array(
+                    &self,
+                    builder: &inkwell::builder::Builder<'ctx>,
+                    items: &[[<$name Opaque>]<'ctx>]
+                ) -> inkwell::values::PointerValue<'ctx> {
+                    let items_allocation = builder
+                        .build_array_malloc(
+                            self.llvm_type(),
+                            self.context.const_u32(u32::try_from(items.len()).unwrap()),
+                            "array_elements",
+                        ).unwrap();
+
+                    for (index, item) in items.into_iter().enumerate() {
+                        let item_pointer = unsafe {
+                            builder.build_gep(
+                                self.llvm_type(),
+                                items_allocation,
+                                &[self.context.const_u32(u32::try_from(index).unwrap())],
+                                "item"
+                            )
+                        }.unwrap();
+
+                        item.fill_in(item_pointer, self.context, builder);
+                    }
+
+                    items_allocation
+                }
+
+                pub(in $crate::codegen) fn make_value(
+                    &self,
+                    builder: &inkwell::builder::Builder<'ctx>,
+                    $($field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
+                ) -> [<$name OpaquePointer>]<'ctx, TContext> {
+                    let target = builder.build_malloc(self.llvm_type(), stringify!($name)).unwrap();
+
+                    self.fill_in(
+                        target,
+                        builder,
+                        $($field_name,)*
+                    );
+
+                    self.opaque_pointer(target)
+                }
+
+                // TODO this should actually instead of all the args take the $name Opaque as an
+                // arg and that's it
                 #[allow(clippy::too_many_arguments)]
                 pub(in $crate::codegen) fn fill_in(
                     &self,

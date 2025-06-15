@@ -1,13 +1,8 @@
-use inkwell::{
-    builder::Builder,
-    values::{IntValue, PointerValue},
-};
+use inkwell::values::PointerValue;
 
-use super::{ValueTypes, value::ValueOpaquePointer};
 use crate::{
-    bytecode::{Identifier, TypeId, TypeTag},
+    bytecode::{Identifier, TypeId},
     codegen::{
-        context::AsLlvmContext,
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
         types::ClassId,
@@ -28,119 +23,5 @@ llvm_struct! {
         argument_count: u16,
         return_type_id: TypeId,
         arguments: *const FunctionArgument
-    }
-}
-
-pub(in crate::codegen) struct FunctionTypes<'ctx, TContext: AsLlvmContext<'ctx>> {
-    basic: ValueTypes<'ctx, TContext>,
-    function_argument_type: FunctionArgumentProvider<'ctx, TContext>,
-    function_signature_type: FunctionSignatureProvider<'ctx, TContext>,
-    context: TContext,
-}
-
-pub(in crate::codegen) struct ArgumentType<'ctx> {
-    name: IntValue<'ctx>,
-    type_id: IntValue<'ctx>,
-}
-
-impl<'ctx> ArgumentType<'ctx> {
-    pub(crate) const fn new(name: IntValue<'ctx>, type_id: IntValue<'ctx>) -> Self {
-        Self { name, type_id }
-    }
-}
-
-impl<'ctx, TContext: AsLlvmContext<'ctx>> FunctionTypes<'ctx, TContext> {
-    pub fn new(context: TContext, basic: ValueTypes<'ctx, TContext>) -> Self {
-        Self {
-            function_argument_type: FunctionArgumentProvider::register(context),
-            function_signature_type: FunctionSignatureProvider::register(context),
-            context,
-            basic,
-        }
-    }
-
-    pub(super) fn make_function_argument(
-        &self,
-        target: PointerValue<'ctx>,
-        builder: &Builder<'ctx>,
-        argument: &ArgumentType<'ctx>,
-    ) {
-        self.function_argument_type
-            .fill_in(target, builder, argument.name, argument.type_id);
-    }
-
-    pub(in crate::codegen) fn make_function_arguments(
-        &self,
-        builder: &Builder<'ctx>,
-        arguments: &[ArgumentType<'ctx>],
-    ) -> PointerValue<'ctx> {
-        let arguments_allocation = builder
-            .build_array_malloc(
-                self.function_argument_type.llvm_type(),
-                self.context
-                    .llvm_context()
-                    .const_u32(u32::try_from(arguments.len()).unwrap() + 1),
-                "arguments_allocation",
-            )
-            .unwrap();
-
-        for (index, argument) in arguments
-            .iter()
-            .chain(&[ArgumentType::new(
-                self.context.const_u32(0),
-                self.context.const_u32(0),
-            )])
-            .enumerate()
-        {
-            let argument_pointer = unsafe {
-                builder.build_gep(
-                    self.function_argument_type.llvm_type(),
-                    arguments_allocation,
-                    &[self.context.const_u32(u32::try_from(index).unwrap())],
-                    "argument",
-                )
-            }
-            .unwrap();
-
-            self.make_function_argument(argument_pointer, builder, argument);
-        }
-
-        arguments_allocation
-    }
-
-    pub(in crate::codegen) fn make_function_signature(
-        &self,
-        builder: &Builder<'ctx>,
-        class_id: IntValue<'ctx>,
-        return_type: IntValue<'ctx>,
-        arguments: PointerValue<'ctx>,
-    ) -> ValueOpaquePointer<'ctx, TContext> {
-        let signature_ptr = builder
-            .build_malloc(self.function_signature_type.llvm_type(), "signature_ptr")
-            .unwrap();
-
-        self.function_signature_type.fill_in(
-            signature_ptr,
-            builder,
-            class_id,
-            self.context.const_u16(0),
-            return_type,
-            arguments,
-        );
-
-        let signature_u64 = builder
-            .build_ptr_to_int(
-                signature_ptr,
-                self.context.llvm_context().i64_type(),
-                "signature_u64",
-            )
-            .unwrap();
-
-        self.basic.make_value(
-            self.basic.make_tag(TypeTag::FunctionSignature),
-            self.basic.make_class_id(ClassId::none()),
-            signature_u64,
-            builder,
-        )
     }
 }

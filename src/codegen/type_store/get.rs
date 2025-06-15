@@ -1,5 +1,5 @@
 use super::TypeStoreOpaquePointer;
-use crate::codegen::{AsLlvmContext, module, types::value::Value};
+use crate::codegen::{AsLlvmContext, ContextErgonomics, module, types::value::Value};
 
 make_function_type!(TypeStoreGet, (id: u64): *const Value);
 
@@ -21,7 +21,9 @@ pub(super) fn make_get<'ctx, TContext: AsLlvmContext<'ctx>>(
             builder.build_gep(
                 element_type,
                 elements,
-                &[function.get_first_param().unwrap().into_int_value()],
+                // TODO we should actually take the argument we got as the first arg and use it to
+                // access the right element based on that ID
+                &[codegen_context.const_u64(0)],
                 "element",
             )
         }

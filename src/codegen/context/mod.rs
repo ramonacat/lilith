@@ -3,7 +3,7 @@ pub(in crate::codegen) mod type_maker;
 
 use inkwell::context::Context;
 
-use super::types::{Types, ValueTypes, functions::FunctionTypes, primitive::PrimitiveTypes};
+use super::types::{Types, primitive::PrimitiveTypes};
 use crate::codegen::types::types::TypesTypes;
 
 pub(in crate::codegen) trait AsLlvmContext<'ctx>: Copy {
@@ -32,16 +32,8 @@ impl<'ctx> CodegenContext<'ctx> {
         self.llvm_context
     }
 
-    pub(crate) const fn function_types(&self) -> &FunctionTypes<'ctx, &'ctx Context> {
-        self.types.function()
-    }
-
     pub(crate) const fn primitive_types(&self) -> &PrimitiveTypes<'ctx, &'ctx Context> {
         self.types.primitive()
-    }
-
-    pub(crate) const fn value_types(&self) -> &ValueTypes<'ctx, &'ctx Context> {
-        self.types.value()
     }
 
     pub(crate) const fn types_types(&self) -> &TypesTypes<'ctx, &'ctx Context> {
