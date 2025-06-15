@@ -16,8 +16,11 @@ use inkwell::{builder::Builder, context::Context};
 use module::built_module::ModuleInterface as _;
 use type_store::TypeStoreInterface;
 use types::{
-    functions::{FunctionArgumentOpaque, FunctionArgumentProvider, FunctionSignatureProvider},
-    values::{ValueOpaquePointer, ValueProvider},
+    functions::{
+        FunctionArgumentOpaque, FunctionArgumentProvider, FunctionSignatureOpaque,
+        FunctionSignatureProvider,
+    },
+    values::{ValueOpaque, ValueOpaquePointer, ValueProvider},
 };
 
 use crate::bytecode::{ByteCode, ConstValue, Expression, Identifier, TypeTag};
@@ -59,11 +62,13 @@ impl<'ctx> CodeGen<'ctx> {
                 // issue (I don't think the value should really have the knowledge of context type)
                 ValueProvider::register(context).make_value(
                     builder,
-                    context.const_u8(TypeTag::U64 as u8),
-                    context.const_u8(0),
-                    context.const_u16(0),
-                    context.const_u32(0),
-                    result_value,
+                    ValueOpaque {
+                        tag: context.const_u8(TypeTag::U64 as u8),
+                        unused_0: context.const_u8(0),
+                        class_id: context.const_u16(0),
+                        unused_1: context.const_u32(0),
+                        raw: result_value,
+                    },
                 )
             }
             Expression::Assignment(binding, value) => {
@@ -110,10 +115,12 @@ impl<'ctx> CodeGen<'ctx> {
 
         let signature_ptr = FunctionSignatureProvider::register(self.context).make_value(
             &builder,
-            self.context.const_u16(0),
-            self.context.const_u16(1), // argument count
-            self.context.const_u32(TypeTag::U64 as u32),
-            arguments,
+            FunctionSignatureOpaque {
+                class_id: self.context.const_u16(0),
+                argument_count: self.context.const_u16(1),
+                return_type_id: self.context.const_u32(TypeTag::U64 as u32),
+                arguments,
+            },
         );
 
         let ptr_int = builder
@@ -126,11 +133,13 @@ impl<'ctx> CodeGen<'ctx> {
 
         let signature_value = ValueProvider::register(self.context).make_value(
             &builder,
-            self.context.const_u8(TypeTag::FunctionSignature as u8),
-            self.context.const_u8(0),
-            self.context.const_u16(0),
-            self.context.const_u32(0),
-            ptr_int,
+            ValueOpaque {
+                tag: self.context.const_u8(TypeTag::FunctionSignature as u8),
+                unused_0: self.context.const_u8(0),
+                class_id: self.context.const_u16(0),
+                unused_1: self.context.const_u32(0),
+                raw: ptr_int,
+            },
         );
 
         type_store_api.add.build_call(
@@ -187,13 +196,15 @@ impl<'ctx> CodeGen<'ctx> {
                 // TODO add some comfort methods for simple i*_type constants
                 ValueProvider::register(self.context).make_value(
                     builder,
-                    context.const_u8(TypeTag::U64 as u8),
-                    context.const_u8(0),
-                    context.const_u16(0),
-                    context.const_u32(0),
-                    context.const_u64(match const_value {
-                        ConstValue::U64(value) => value,
-                    }),
+                    ValueOpaque {
+                        tag: context.const_u8(TypeTag::U64 as u8),
+                        unused_0: context.const_u8(0),
+                        class_id: context.const_u16(0),
+                        unused_1: context.const_u32(0),
+                        raw: context.const_u64(match const_value {
+                            ConstValue::U64(value) => value,
+                        }),
+                    },
                 )
             }
             crate::bytecode::Value::Local(identifier) => {

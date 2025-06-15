@@ -1,6 +1,6 @@
 use inkwell::{IntPredicate, context::Context};
 
-use super::{TypeStoreOpaquePointer, TypeValueProvider};
+use super::{TypeStoreOpaquePointer, TypeValueOpaque, TypeValueProvider};
 use crate::{
     bytecode::Value,
     codegen::{ContextErgonomics as _, module, types::values::ValueProvider},
@@ -64,8 +64,10 @@ pub(super) fn make_add<'ctx>(
         TypeValueProvider::register(context).fill_in(
             new_value_spot,
             &builder,
-            function.get_first_param().unwrap().into_int_value(),
-            new_value.into_struct_value(),
+            TypeValueOpaque {
+                id: function.get_first_param().unwrap().into_int_value(),
+                r#type: new_value.into_struct_value(),
+            },
         );
 
         let new_length = builder

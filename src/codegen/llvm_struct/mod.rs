@@ -227,32 +227,29 @@ macro_rules! llvm_struct {
                 pub(in $crate::codegen) fn make_value(
                     &self,
                     builder: &inkwell::builder::Builder<'ctx>,
-                    $($field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
+                    values: [<$name Opaque>]<'ctx>,
                 ) -> [<$name OpaquePointer>]<'ctx> {
                     let target = builder.build_malloc(self.llvm_type(), stringify!($name)).unwrap();
 
                     self.fill_in(
                         target,
                         builder,
-                        $($field_name,)*
+                        values,
                     );
 
                     self.opaque_pointer(target)
                 }
 
-                // TODO this should actually instead of all the args take the $name Opaque as an
-                // arg and that's it
-                #[allow(clippy::too_many_arguments)]
                 pub(in $crate::codegen) fn fill_in(
                     &self,
                     target: inkwell::values::PointerValue<'ctx>,
                     builder: &inkwell::builder::Builder<'ctx>,
-                    $($field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
+                    values: [<$name Opaque>]<'ctx>
                 ) {
                     let mut index:u32 = 0;
 
                     $({
-                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&self.context, $field_name);
+                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&self.context, values.$field_name);
 
                         let field_gep = builder
                             .build_struct_gep(
@@ -263,7 +260,7 @@ macro_rules! llvm_struct {
                             )
                             .unwrap();
 
-                        builder.build_store(field_gep, $field_name).unwrap();
+                        builder.build_store(field_gep, values.$field_name).unwrap();
 
                         // TODO should we make this comptime by using macro recursion tricks?
                         index += 1;

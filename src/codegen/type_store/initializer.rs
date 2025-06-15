@@ -27,9 +27,11 @@ pub(super) fn make_type_store_initializer<'ctx>(
         TypeStoreProvider::register(context).fill_in(
             type_store,
             &builder,
-            types,
-            context.const_u32(0),
-            capacity,
+            super::TypeStoreOpaque {
+                types,
+                length: context.const_u32(0),
+                capacity,
+            },
         );
         builder.build_return(None).unwrap();
     })

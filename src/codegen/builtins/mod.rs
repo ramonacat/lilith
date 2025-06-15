@@ -11,7 +11,6 @@ make_function_type!(DebugTypeDefinition, (value: *const Value));
 pub(in crate::codegen) fn register<'ctx>(
     execution_engine: &ExecutionEngine<'ctx>,
     module: &Module<'ctx>,
-    // TODO rename -> context
     context: &'ctx Context,
 ) {
     let debug_type_definition = module.add_function(
