@@ -2,6 +2,7 @@ pub(in crate::codegen) mod built_module;
 
 use inkwell::{
     AddressSpace,
+    context::Context,
     module::{Linkage, Module},
     types::{BasicType, StructType},
     values::{FunctionValue, GlobalValue, PointerValue},
@@ -9,10 +10,7 @@ use inkwell::{
 
 use super::{
     builtins::DebugTypeDefinition,
-    context::{
-        AsLlvmContext, CodegenContext,
-        type_maker::{Function, Procedure},
-    },
+    context::type_maker::{Function, Procedure},
 };
 use crate::codegen::{
     context_ergonomics::ContextErgonomics,
@@ -31,24 +29,20 @@ llvm_struct! {
     }
 }
 
-pub fn register<'ctx, 'codegen>(
-    codegen_context: &'codegen CodegenContext<'ctx>,
-) -> ModuleBuilderProvider<'ctx, 'codegen, &'codegen CodegenContext<'ctx>> {
+pub fn register(codegen_context: &Context) -> ModuleBuilderProvider<'_> {
     ModuleBuilderProvider {
         global_constructors_provider: GlobalConstructorProvider::register(codegen_context),
         codegen_context,
     }
 }
 
-pub(in crate::codegen) struct ModuleBuilderProvider<'ctx, 'codegen, TContext: AsLlvmContext<'ctx>> {
-    global_constructors_provider: GlobalConstructorProvider<'ctx, TContext>,
-    codegen_context: &'codegen CodegenContext<'ctx>,
+pub(in crate::codegen) struct ModuleBuilderProvider<'ctx> {
+    global_constructors_provider: GlobalConstructorProvider<'ctx>,
+    codegen_context: &'ctx Context,
 }
 
-impl<'ctx, 'codegen, TContext: AsLlvmContext<'ctx>>
-    ModuleBuilderProvider<'ctx, 'codegen, TContext>
-{
-    pub fn make_builder(&self, name: &str) -> ModuleBuilder<'ctx, 'codegen> {
+impl<'ctx> ModuleBuilderProvider<'ctx> {
+    pub fn make_builder(&self, name: &str) -> ModuleBuilder<'ctx> {
         ModuleBuilder::new(
             name,
             self.codegen_context,
@@ -57,21 +51,21 @@ impl<'ctx, 'codegen, TContext: AsLlvmContext<'ctx>>
     }
 }
 
-pub(in crate::codegen) struct ModuleBuilder<'ctx, 'codegen> {
+pub(in crate::codegen) struct ModuleBuilder<'ctx> {
     module: Module<'ctx>,
     global_constructors: Vec<GlobalConstructorOpaque<'ctx>>,
     global_constructor_type: StructType<'ctx>,
 
-    codegen_context: &'codegen CodegenContext<'ctx>,
+    codegen_context: &'ctx Context,
 }
 
-impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
+impl<'ctx> ModuleBuilder<'ctx> {
     fn new(
         name: &str,
-        codegen_context: &'codegen CodegenContext<'ctx>,
+        codegen_context: &'ctx Context,
         global_constructor_type: StructType<'ctx>,
     ) -> Self {
-        let module = codegen_context.llvm_context().create_module(name);
+        let module = codegen_context.create_module(name);
         // TODO this is a hack, it will link to the function defined in the main module, but we
         // should really invest into some real debug infrastructure
         module.add_function(
@@ -94,12 +88,11 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         initialized_value: Option<GlobalValue<'ctx>>,
     ) {
         self.global_constructors.push(GlobalConstructorOpaque {
-            priority: self.codegen_context.llvm_context().const_u32(priority),
+            priority: self.codegen_context.const_u32(priority),
             target: constructor.as_global_value().as_pointer_value(),
             initialized_value: initialized_value.map_or_else(
                 || {
                     self.codegen_context
-                        .llvm_context()
                         .ptr_type(AddressSpace::default())
                         .const_null()
                 },
@@ -117,7 +110,7 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         TProcedure: Procedure<'ctx, TArguments>,
     >(
         &self,
-        build: impl Fn(FunctionValue<'ctx>, &CodegenContext<'ctx>, &Module<'ctx>),
+        build: impl Fn(FunctionValue<'ctx>, &'ctx Context, &Module<'ctx>),
     ) -> TProcedure {
         let signature = TProcedure::llvm_type(self.codegen_context);
         let function = self.module.add_function(TProcedure::NAME, signature, None);
@@ -133,7 +126,7 @@ impl<'ctx, 'codegen> ModuleBuilder<'ctx, 'codegen> {
         TFunction: Function<'ctx, TReturn, TArguments>,
     >(
         &self,
-        build: impl Fn(FunctionValue<'ctx>, &CodegenContext<'ctx>, &Module<'ctx>),
+        build: impl Fn(FunctionValue<'ctx>, &'ctx Context, &Module<'ctx>),
     ) -> TFunction {
         let signature = TFunction::llvm_type(self.codegen_context);
         let function = self.module.add_function(TFunction::NAME, signature, None);

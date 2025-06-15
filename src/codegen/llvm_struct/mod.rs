@@ -70,12 +70,12 @@ macro_rules! llvm_struct {
 
             // TODO why do we take the context as ref here? the trait is implemented for refs only
         // anyway
-            fn assert_valid(_context: &impl $crate::codegen::context::AsLlvmContext<'ctx>, _value: Self::LlvmValue) {}
+            fn assert_valid(_context: &'ctx inkwell::context::Context, _value: Self::LlvmValue) {}
 
             // TODO why do we take the context as ref here? the trait is implemented for refs only
         // anyway
-            fn llvm_type(context: &impl $crate::codegen::context::AsLlvmContext<'ctx>) -> Self::LlvmType {
-                paste::paste! { [<$name Provider>]::register(*context).llvm_type() }
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
+                paste::paste! { [<$name Provider>]::register(context).llvm_type() }
             }
         }
 
@@ -86,10 +86,10 @@ macro_rules! llvm_struct {
             }
 
             impl<'ctx> [<$name Opaque>]<'ctx> {
-                pub(in $crate::codegen) fn fill_in<TContext: $crate::codegen::context::AsLlvmContext<'ctx>>(
+                pub(in $crate::codegen) fn fill_in(
                     &self,
                     target: inkwell::values::PointerValue<'ctx>,
-                    context: TContext,
+                    context: &'ctx inkwell::context::Context,
                     builder: &inkwell::builder::Builder<'ctx>,
                 ) {
                     // TODO check why we need a double reference for context here and fix it
@@ -121,18 +121,18 @@ macro_rules! llvm_struct {
             }
 
             #[derive(Debug, Clone, Copy)]
-            pub(in $crate::codegen) struct [<$name OpaquePointer>]<'ctx, TContext: $crate::codegen::context::AsLlvmContext<'ctx>> {
+            pub(in $crate::codegen) struct [<$name OpaquePointer>]<'ctx> {
                 pointer: inkwell::values::PointerValue<'ctx>,
-                context: TContext,
+                context: &'ctx inkwell::context::Context,
                 llvm_type: inkwell::types::StructType<'ctx>,
             }
 
-            impl<'ctx, TContext: $crate::codegen::context::AsLlvmContext<'ctx>> [<$name OpaquePointer>]<'ctx, TContext> {
+            impl<'ctx> [<$name OpaquePointer>]<'ctx> {
                 #[allow(unused)]
                 const fn new(
                 // TODO is this even used? if yes, move to the impl for Opaque
                     pointer: PointerValue<'ctx>,
-                    context: TContext,
+                    context: &'ctx inkwell::context::Context,
                     llvm_type: inkwell::types::StructType<'ctx>,
                 ) -> Self {
                     Self { pointer, context, llvm_type }
@@ -149,17 +149,16 @@ macro_rules! llvm_struct {
 
             #[derive(Debug, Clone, Copy)]
             #[allow(unused)]
-            pub(in $crate::codegen) struct [<$name Provider>]<'ctx, TContext: $crate::codegen::context::AsLlvmContext<'ctx>> {
+            pub(in $crate::codegen) struct [<$name Provider>]<'ctx> {
                 llvm_type: inkwell::types::StructType<'ctx>,
-                context: TContext
+                context: &'ctx inkwell::context::Context
             }
 
             #[allow(unused)]
-            impl<'ctx, TContext: $crate::codegen::context::AsLlvmContext<'ctx>> [<$name Provider>]<'ctx, TContext> {
+            impl<'ctx> [<$name Provider>]<'ctx> {
                 // TODO rename to new
-                pub(in $crate::codegen) fn register(context: TContext) -> Self {
-                    let llvm_context = context.llvm_context();
-                    let llvm_type = llvm_context.named_struct(stringify!($name), &[
+                pub(in $crate::codegen) fn register(context: &'ctx inkwell::context::Context) -> Self {
+                    let llvm_type = context.named_struct(stringify!($name), &[
                         $(<$field_type>::llvm_type(&context).into()),+
                     ]);
                     Self { llvm_type, context }
@@ -169,7 +168,7 @@ macro_rules! llvm_struct {
                 pub(in $crate::codegen) const fn opaque_pointer(
                     &self,
                     pointer: PointerValue<'ctx>
-                ) -> [<$name OpaquePointer>]<'ctx, TContext> {
+                ) -> [<$name OpaquePointer>]<'ctx> {
                     [<$name OpaquePointer>]::new(pointer, self.context, self.llvm_type)
                 }
 
@@ -229,7 +228,7 @@ macro_rules! llvm_struct {
                     &self,
                     builder: &inkwell::builder::Builder<'ctx>,
                     $($field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
-                ) -> [<$name OpaquePointer>]<'ctx, TContext> {
+                ) -> [<$name OpaquePointer>]<'ctx> {
                     let target = builder.build_malloc(self.llvm_type(), stringify!($name)).unwrap();
 
                     self.fill_in(

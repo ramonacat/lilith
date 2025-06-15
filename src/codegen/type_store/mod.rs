@@ -1,10 +1,7 @@
 use inkwell::{context::Context, module::Module, values::PointerValue};
 
 use crate::codegen::{
-    context::{
-        CodegenContext,
-        type_maker::{Function, Procedure},
-    },
+    context::type_maker::{Function, Procedure},
     module::ModuleBuilder,
 };
 pub(in crate::codegen) mod add;
@@ -49,28 +46,30 @@ make_module_interface!(@builder(TypeStoreBuilderImpl<'ctx>) struct TypeStoreInte
 });
 
 pub(in crate::codegen) struct TypeStoreBuilderImpl<'ctx> {
-    type_store: TypeStoreOpaquePointer<'ctx, &'ctx Context>,
+    type_store: TypeStoreOpaquePointer<'ctx>,
 }
 
 impl<'ctx> TypeStoreInterfaceBuilder<'ctx, '_> for TypeStoreBuilderImpl<'ctx> {
     fn add(
         &self,
-        builder: &mut ModuleBuilder<'ctx, '_>,
-        _codegen_context: &CodegenContext<'ctx>,
+        builder: &mut ModuleBuilder<'ctx>,
+        // TODO remove this argument completely
+        _codegen_context: &'ctx Context,
     ) -> TypeStoreAdd<'ctx> {
         make_add(builder, self.type_store)
     }
 
     fn get(
         &self,
-        builder: &mut ModuleBuilder<'ctx, '_>,
-        _codegen_context: &CodegenContext<'ctx>,
+        builder: &mut ModuleBuilder<'ctx>,
+        _codegen_context: &'ctx Context,
     ) -> TypeStoreGet<'ctx> {
         make_get(builder, self.type_store)
     }
 }
 
-pub(in crate::codegen) fn register<'ctx>(codegen_context: &CodegenContext<'ctx>) -> Module<'ctx> {
+// TODO codegen_context -> context
+pub(in crate::codegen) fn register(codegen_context: &Context) -> Module<'_> {
     // TODO this should be a part of codegen_context prolly?
     let module_builder_provider = module::register(codegen_context);
 
@@ -91,7 +90,7 @@ pub(in crate::codegen) fn register<'ctx>(codegen_context: &CodegenContext<'ctx>)
 
     TypeStoreInterface::register(
         &TypeStoreBuilderImpl {
-            type_store: TypeStoreProvider::register(codegen_context.llvm_context())
+            type_store: TypeStoreProvider::register(codegen_context)
                 .opaque_pointer(type_store.as_pointer_value()),
         },
         &mut module_builder,

@@ -1,10 +1,10 @@
 use inkwell::{
     builder::Builder,
+    context::Context,
     types::FunctionType,
     values::{FunctionValue, GlobalValue},
 };
 
-use super::AsLlvmContext;
 use crate::codegen::llvm_struct::representations::LlvmRepresentation;
 
 // TODO the Procedure/Function duality exists mostly because VoidType in inkwell is not BasicType
@@ -14,7 +14,7 @@ use crate::codegen::llvm_struct::representations::LlvmRepresentation;
 pub(in crate::codegen) trait Procedure<'ctx, TArguments> {
     const NAME: &'static str;
 
-    fn llvm_type(context: impl AsLlvmContext<'ctx>) -> FunctionType<'ctx>;
+    fn llvm_type(context: &'ctx Context) -> FunctionType<'ctx>;
 
     fn new(value: FunctionValue<'ctx>) -> Self;
     #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
@@ -28,7 +28,7 @@ pub(in crate::codegen) trait Procedure<'ctx, TArguments> {
 pub(in crate::codegen) trait Function<'ctx, TReturn: LlvmRepresentation<'ctx>, TArguments> {
     const NAME: &'static str;
 
-    fn llvm_type(context: impl AsLlvmContext<'ctx>) -> FunctionType<'ctx>;
+    fn llvm_type(context: &'ctx Context) -> FunctionType<'ctx>;
 
     fn new(value: FunctionValue<'ctx>) -> Self;
     #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
@@ -71,8 +71,8 @@ macro_rules! make_function_type {
 
             // TODO can CodegenContext implement Context(if it's a trait) maybeee? or maybe we can
             // have some common trait, to just avoid going deep into properties at call sites
-            fn llvm_type(context: impl $crate::codegen::context::AsLlvmContext<'ctx>) -> inkwell::types::FunctionType<'ctx> {
-                context.llvm_context().void_type().fn_type(&[
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> inkwell::types::FunctionType<'ctx> {
+                context.void_type().fn_type(&[
                     $(
                         $crate::make_llvm_type_instance!(&context, $argument).into()
                     ),*
@@ -117,7 +117,7 @@ macro_rules! make_function_type {
 
             // TODO can CodegenContext implement Context(if it's a trait) maybeee? or maybe we can
             // have some common trait, to just avoid going deep into properties at call sites
-            fn llvm_type(context: impl $crate::codegen::context::AsLlvmContext<'ctx>) -> inkwell::types::FunctionType<'ctx> {
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> inkwell::types::FunctionType<'ctx> {
                 let return_type = $crate::make_llvm_type_instance!(&context, $return_type);
 
                 return_type.fn_type(&[

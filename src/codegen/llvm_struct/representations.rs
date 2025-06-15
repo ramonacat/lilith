@@ -1,20 +1,21 @@
 use inkwell::{
     AddressSpace,
+    context::Context,
     types::{BasicType, IntType, PointerType},
     values::{BasicValue, IntValue, PointerValue},
 };
 
 use crate::{
     bytecode::{Identifier, TypeId, TypeTag},
-    codegen::{context::AsLlvmContext, types::ClassId},
+    codegen::types::ClassId,
 };
 
 pub(in crate::codegen) trait LlvmRepresentation<'ctx> {
     type LlvmValue: BasicValue<'ctx>;
     type LlvmType: BasicType<'ctx>;
 
-    fn llvm_type(context: &impl AsLlvmContext<'ctx>) -> Self::LlvmType;
-    fn assert_valid(context: &impl AsLlvmContext<'ctx>, value: Self::LlvmValue);
+    fn llvm_type(context: &'ctx Context) -> Self::LlvmType;
+    fn assert_valid(context: &'ctx Context, value: Self::LlvmValue);
 }
 
 macro_rules! llvm_representation {
@@ -23,11 +24,11 @@ macro_rules! llvm_representation {
             type LlvmValue = IntValue<'ctx>;
             type LlvmType = IntType<'ctx>;
 
-            fn llvm_type(context: &impl AsLlvmContext<'ctx>) -> Self::LlvmType {
-                paste::paste!(context.llvm_context().[<i $width _type>]())
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
+                paste::paste!(context.[<i $width _type>]())
             }
 
-            fn assert_valid(context: &impl AsLlvmContext<'ctx>, value: Self::LlvmValue) {
+            fn assert_valid(context: &'ctx inkwell::context::Context, value: Self::LlvmValue) {
                 assert!(
                     value.get_type().get_bit_width() == Self::llvm_type(context).get_bit_width(),
                     "expected {} bit value, got {} bit",
@@ -42,11 +43,11 @@ macro_rules! llvm_representation {
             type LlvmValue = PointerValue<'ctx>;
             type LlvmType = PointerType<'ctx>;
 
-            fn llvm_type(context: &impl AsLlvmContext<'ctx>) -> Self::LlvmType {
-                context.llvm_context().ptr_type(AddressSpace::default())
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
+                context.ptr_type(AddressSpace::default())
             }
 
-            fn assert_valid(_context: &impl AsLlvmContext<'ctx>, _value: Self::LlvmValue) {
+            fn assert_valid(_context: &'ctx inkwell::context::Context, _value: Self::LlvmValue) {
             }
         }
     };
@@ -58,6 +59,8 @@ llvm_representation!(@int u32, 32);
 llvm_representation!(@int u64, 64);
 // TODO We have to check that the structs actually have a repr(C)/repr(transparent) and enums have
 // repr(u*), but AFAIK that's only possible with proc macros, so this is a future me problem
+// TODO perhaps the structs should use the type_maker instead, and llvm_representation should be
+// reserved for primitives?
 llvm_representation!(@int TypeTag, 8);
 llvm_representation!(@int ClassId, 16);
 llvm_representation!(@int Identifier, 32);

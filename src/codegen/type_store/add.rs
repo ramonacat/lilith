@@ -1,25 +1,20 @@
-use inkwell::IntPredicate;
+use inkwell::{IntPredicate, context::Context};
 
 use super::{TypeStoreOpaquePointer, TypeValueProvider};
 use crate::{
     bytecode::Value,
-    codegen::{
-        AsLlvmContext, ContextErgonomics as _, context::CodegenContext, module,
-        types::value::ValueProvider,
-    },
+    codegen::{ContextErgonomics as _, module, types::value::ValueProvider},
 };
 
 make_function_type!(TypeStoreAdd, (id:u32, value: *const Value));
 
-pub(super) fn make_add<'ctx, TContext: AsLlvmContext<'ctx>>(
-    module_builder: &module::ModuleBuilder<'ctx, '_>,
-    type_store: TypeStoreOpaquePointer<'ctx, TContext>,
+pub(super) fn make_add<'ctx>(
+    module_builder: &module::ModuleBuilder<'ctx>,
+    type_store: TypeStoreOpaquePointer<'ctx>,
 ) -> TypeStoreAdd<'ctx> {
     module_builder.build_procedure::<_, TypeStoreAdd>(|function, codegen_context, _module| {
-        let builder = codegen_context.llvm_context().create_builder();
-        let entry = codegen_context
-            .llvm_context()
-            .append_basic_block(function, "entry");
+        let builder = codegen_context.create_builder();
+        let entry = codegen_context.append_basic_block(function, "entry");
 
         builder.position_at_end(entry);
 
@@ -34,12 +29,8 @@ pub(super) fn make_add<'ctx, TContext: AsLlvmContext<'ctx>>(
                 "is_at_capacity",
             )
             .unwrap();
-        let add_capacity_block = codegen_context
-            .llvm_context()
-            .append_basic_block(function, "add_capacity");
-        let continue_block = codegen_context
-            .llvm_context()
-            .append_basic_block(function, "continue");
+        let add_capacity_block = codegen_context.append_basic_block(function, "add_capacity");
+        let continue_block = codegen_context.append_basic_block(function, "continue");
         builder
             .build_conditional_branch(is_capacity_too_small, add_capacity_block, continue_block)
             .unwrap();
@@ -78,11 +69,7 @@ pub(super) fn make_add<'ctx, TContext: AsLlvmContext<'ctx>>(
         );
 
         let new_length = builder
-            .build_int_add(
-                store_length,
-                codegen_context.llvm_context().const_u32(1),
-                "added_length",
-            )
+            .build_int_add(store_length, codegen_context.const_u32(1), "added_length")
             .unwrap();
         builder
             .build_store(type_store.get_length_ptr(&builder), new_length)
@@ -92,19 +79,15 @@ pub(super) fn make_add<'ctx, TContext: AsLlvmContext<'ctx>>(
     })
 }
 
-fn expand_capacity<'ctx, 'codegen, TContext: AsLlvmContext<'ctx>>(
-    type_store: TypeStoreOpaquePointer<'ctx, TContext>,
-    codegen_context: &CodegenContext<'ctx>,
+fn expand_capacity<'ctx>(
+    type_store: TypeStoreOpaquePointer<'ctx>,
+    codegen_context: &'ctx Context,
     builder: &inkwell::builder::Builder<'ctx>,
 ) {
     let store_capacity = type_store.get_capacity(builder);
 
     let new_capacity = builder
-        .build_int_mul(
-            store_capacity,
-            codegen_context.llvm_context().const_u32(2),
-            "new_capacity",
-        )
+        .build_int_mul(store_capacity, codegen_context.const_u32(2), "new_capacity")
         .unwrap();
 
     builder

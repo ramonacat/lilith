@@ -10,10 +10,7 @@ pub(in crate::codegen) mod types;
 
 use std::collections::HashMap;
 
-use context::{
-    AsLlvmContext, CodegenContext,
-    type_maker::{Function, Procedure as _},
-};
+use context::type_maker::{Function, Procedure as _};
 use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
 use module::built_module::ModuleInterface as _;
@@ -27,7 +24,7 @@ use crate::bytecode::{ByteCode, ConstValue, Expression, Identifier, TypeTag};
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
-    scope: HashMap<Identifier, ValueOpaquePointer<'ctx, &'ctx Context>>,
+    scope: HashMap<Identifier, ValueOpaquePointer<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -44,8 +41,8 @@ impl<'ctx> CodeGen<'ctx> {
         // TODO the following two should probably be fields on self (might need to introduce one
         // more level of abstraction tho, idk)
         builder: &Builder<'ctx>,
-        codegen_context: &CodegenContext<'ctx>,
-    ) -> ValueOpaquePointer<'ctx, &'ctx Context> {
+        codegen_context: &'ctx Context,
+    ) -> ValueOpaquePointer<'ctx> {
         match expression {
             Expression::Add(left, right) => {
                 // TODO we should check if either of the values implements an interface that allows
@@ -60,7 +57,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // TODO the .llvm_context here is needed because the value needs to know the
                 // context type, but perhaps we can switch up to dyn or something there to side-step the
                 // issue (I don't think the value should really have the knowledge of context type)
-                ValueProvider::register(codegen_context.llvm_context()).make_value(
+                ValueProvider::register(codegen_context).make_value(
                     builder,
                     codegen_context.const_u8(TypeTag::U64 as u8),
                     codegen_context.const_u8(0),
@@ -96,16 +93,14 @@ impl<'ctx> CodeGen<'ctx> {
         let entry_block = self.context.append_basic_block(main, "entry");
         builder.position_at_end(entry_block);
 
-        let codegen_context = CodegenContext::new(self.context);
+        builtins::register(&execution_engine, &module, self.context);
 
-        builtins::register(&execution_engine, &module, &codegen_context);
-
-        let type_store_module = type_store::register(&codegen_context);
+        let type_store_module = type_store::register(self.context);
         // TODO instead of a HashMap do we want a strongly-typed struct here?
         let type_store_api: TypeStoreInterface =
-            TypeStoreInterface::expose_to(&module, &codegen_context);
+            TypeStoreInterface::expose_to(&module, self.context);
 
-        let arguments = FunctionArgumentProvider::register(&codegen_context).make_array(
+        let arguments = FunctionArgumentProvider::register(self.context).make_array(
             &builder,
             &[FunctionArgumentOpaque {
                 name: self.context.const_u32(1),
@@ -140,10 +135,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         type_store_api.add.build_call(
             &builder,
-            (
-                codegen_context.llvm_context().const_u32(1024),
-                signature_value.ptr(),
-            ),
+            (self.context.const_u32(1024), signature_value.ptr()),
         );
 
         let _first_type = type_store_api
@@ -152,7 +144,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let mut result = None;
         for instruction in bytecode.instructions {
-            result = Some(self.build_expression(instruction, &builder, &codegen_context));
+            result = Some(self.build_expression(instruction, &builder, self.context));
         }
 
         if let Some(result) = result {
@@ -188,18 +180,18 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         value: crate::bytecode::Value,
         builder: &Builder<'ctx>,
-        codegen_context: &CodegenContext<'ctx>,
-    ) -> ValueOpaquePointer<'ctx, &'ctx Context> {
+        codegen_context: &'ctx Context,
+    ) -> ValueOpaquePointer<'ctx> {
         match value {
             crate::bytecode::Value::Literal(const_value) => {
                 // TODO add some comfort methods for simple i*_type constants
                 ValueProvider::register(self.context).make_value(
                     builder,
-                    codegen_context.llvm_context().const_u8(TypeTag::U64 as u8),
-                    codegen_context.llvm_context().const_u8(0),
-                    codegen_context.llvm_context().const_u16(0),
-                    codegen_context.llvm_context().const_u32(0),
-                    codegen_context.llvm_context().const_u64(match const_value {
+                    codegen_context.const_u8(TypeTag::U64 as u8),
+                    codegen_context.const_u8(0),
+                    codegen_context.const_u16(0),
+                    codegen_context.const_u32(0),
+                    codegen_context.const_u64(match const_value {
                         ConstValue::U64(value) => value,
                     }),
                 )
