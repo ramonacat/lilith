@@ -1,5 +1,5 @@
 use super::{TypeStoreOpaquePointer, TypeValueProvider};
-use crate::codegen::{ContextErgonomics, module, types::value::Value};
+use crate::codegen::{ContextErgonomics, module, types::values::Value};
 
 make_function_type!(TypeStoreGet, (id: u64): *const Value);
 

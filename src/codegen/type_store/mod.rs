@@ -17,7 +17,7 @@ use crate::{
     codegen::{
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
-        types::value::Value,
+        types::values::Value,
     },
     make_module_interface,
 };

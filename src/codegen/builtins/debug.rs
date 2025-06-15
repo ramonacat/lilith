@@ -2,10 +2,10 @@ use std::fmt::Write;
 
 use crate::{
     bytecode::TypeTag,
-    codegen::types::{functions::FunctionSignature, value::Value},
+    codegen::types::{functions::FunctionSignature, values::Value},
 };
 
-impl std::fmt::Debug for crate::codegen::types::value::Value {
+impl std::fmt::Debug for crate::codegen::types::values::Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.tag {
             TypeTag::Primitive => write!(

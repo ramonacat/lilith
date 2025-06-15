@@ -3,7 +3,7 @@ use inkwell::{IntPredicate, context::Context};
 use super::{TypeStoreOpaquePointer, TypeValueProvider};
 use crate::{
     bytecode::Value,
-    codegen::{ContextErgonomics as _, module, types::value::ValueProvider},
+    codegen::{ContextErgonomics as _, module, types::values::ValueProvider},
 };
 
 make_function_type!(TypeStoreAdd, (id:u32, value: *const Value));

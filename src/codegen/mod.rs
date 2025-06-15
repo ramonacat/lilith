@@ -17,7 +17,7 @@ use module::built_module::ModuleInterface as _;
 use type_store::TypeStoreInterface;
 use types::{
     functions::{FunctionArgumentOpaque, FunctionArgumentProvider, FunctionSignatureProvider},
-    value::{ValueOpaquePointer, ValueProvider},
+    values::{ValueOpaquePointer, ValueProvider},
 };
 
 use crate::bytecode::{ByteCode, ConstValue, Expression, Identifier, TypeTag};

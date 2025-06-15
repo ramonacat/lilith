@@ -7,7 +7,7 @@ use inkwell::{
 
 use crate::{
     bytecode::{Identifier, TypeId, TypeTag},
-    codegen::types::ClassId,
+    codegen::types::classes::ClassId,
 };
 
 pub(in crate::codegen) trait LlvmRepresentation<'ctx> {

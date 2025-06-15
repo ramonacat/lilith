@@ -1,11 +1,11 @@
 use inkwell::values::PointerValue;
 
+use super::classes::ClassId;
 use crate::{
     bytecode::{Identifier, TypeId},
     codegen::{
         context_ergonomics::ContextErgonomics,
         llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
-        types::ClassId,
     },
     llvm_struct,
 };
