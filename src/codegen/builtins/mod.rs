@@ -12,12 +12,12 @@ pub(in crate::codegen) fn register<'ctx>(
     execution_engine: &ExecutionEngine<'ctx>,
     module: &Module<'ctx>,
     // TODO rename -> context
-    codegen_context: &'ctx Context,
+    context: &'ctx Context,
 ) {
     let debug_type_definition = module.add_function(
         "debug_type_definition",
         // this should really be a type argument, and not a value argument
-        DebugTypeDefinition::llvm_type(codegen_context),
+        DebugTypeDefinition::llvm_type(context),
         None,
     );
 

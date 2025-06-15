@@ -54,7 +54,7 @@ impl<'ctx> TypeStoreInterfaceBuilder<'ctx, '_> for TypeStoreBuilderImpl<'ctx> {
         &self,
         builder: &mut ModuleBuilder<'ctx>,
         // TODO remove this argument completely
-        _codegen_context: &'ctx Context,
+        _context: &'ctx Context,
     ) -> TypeStoreAdd<'ctx> {
         make_add(builder, self.type_store)
     }
@@ -62,21 +62,21 @@ impl<'ctx> TypeStoreInterfaceBuilder<'ctx, '_> for TypeStoreBuilderImpl<'ctx> {
     fn get(
         &self,
         builder: &mut ModuleBuilder<'ctx>,
-        _codegen_context: &'ctx Context,
+        // TODO remove this argument completely
+        _context: &'ctx Context,
     ) -> TypeStoreGet<'ctx> {
         make_get(builder, self.type_store)
     }
 }
 
-// TODO codegen_context -> context
-pub(in crate::codegen) fn register(codegen_context: &Context) -> Module<'_> {
-    // TODO this should be a part of codegen_context prolly?
-    let module_builder_provider = module::register(codegen_context);
+pub(in crate::codegen) fn register(context: &Context) -> Module<'_> {
+    // TODO this should be initialized at a higher level
+    let module_builder_provider = module::register(context);
 
     // TODO we likely want to do some name mangling and have a naming convention and shit for the
     // builtin modules
     let mut module_builder = module_builder_provider.make_builder("type_store");
-    let value_store_provider = TypeStoreProvider::register(codegen_context);
+    let value_store_provider = TypeStoreProvider::register(context);
 
     // TODO separate add_global (that takes optional intializer, otherwise zeroes) and
     // add_global_import for importing global from other modules
@@ -90,11 +90,11 @@ pub(in crate::codegen) fn register(codegen_context: &Context) -> Module<'_> {
 
     TypeStoreInterface::register(
         &TypeStoreBuilderImpl {
-            type_store: TypeStoreProvider::register(codegen_context)
+            type_store: TypeStoreProvider::register(context)
                 .opaque_pointer(type_store.as_pointer_value()),
         },
         &mut module_builder,
-        codegen_context,
+        context,
     );
 
     module_builder.build()

@@ -6,7 +6,7 @@ pub(in crate::codegen) trait ModuleInterface<'ctx, 'codegen, TBuilder> {
     fn register(
         builder: &TBuilder,
         module_builder: &mut ModuleBuilder<'ctx>,
-        codegen_context: &'ctx Context,
+        context: &'ctx Context,
     ) -> Self;
     fn expose_to(other: &Module<'ctx>, context: &'ctx Context) -> Self;
 }
@@ -22,7 +22,7 @@ macro_rules! make_module_interface {
                     fn $field_name(
                         &self,
                         builder: &mut $crate::codegen::module::ModuleBuilder<'ctx>,
-                        codegen_context: &'ctx inkwell::context::Context
+                        context: &'ctx inkwell::context::Context
                     ) -> $field_type;
                 )+
             }
@@ -36,11 +36,10 @@ macro_rules! make_module_interface {
             fn register(
                 builder: &$builder_name,
                 module_builder: &mut $crate::codegen::module::ModuleBuilder<'ctx>,
-        // TODO rename -> context
-                codegen_context: &'ctx inkwell::context::Context
+                context: &'ctx inkwell::context::Context
         ) -> Self {
                 Self {
-                    $($field_name: builder.$field_name(module_builder, codegen_context)),+
+                    $($field_name: builder.$field_name(module_builder, context)),+
                 }
             }
 

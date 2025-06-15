@@ -12,9 +12,9 @@ pub(super) fn make_add<'ctx>(
     module_builder: &module::ModuleBuilder<'ctx>,
     type_store: TypeStoreOpaquePointer<'ctx>,
 ) -> TypeStoreAdd<'ctx> {
-    module_builder.build_procedure::<_, TypeStoreAdd>(|function, codegen_context, _module| {
-        let builder = codegen_context.create_builder();
-        let entry = codegen_context.append_basic_block(function, "entry");
+    module_builder.build_procedure::<_, TypeStoreAdd>(|function, context, _module| {
+        let builder = context.create_builder();
+        let entry = context.append_basic_block(function, "entry");
 
         builder.position_at_end(entry);
 
@@ -29,15 +29,15 @@ pub(super) fn make_add<'ctx>(
                 "is_at_capacity",
             )
             .unwrap();
-        let add_capacity_block = codegen_context.append_basic_block(function, "add_capacity");
-        let continue_block = codegen_context.append_basic_block(function, "continue");
+        let add_capacity_block = context.append_basic_block(function, "add_capacity");
+        let continue_block = context.append_basic_block(function, "continue");
         builder
             .build_conditional_branch(is_capacity_too_small, add_capacity_block, continue_block)
             .unwrap();
 
         builder.position_at_end(add_capacity_block);
 
-        expand_capacity(type_store, codegen_context, &builder);
+        expand_capacity(type_store, context, &builder);
 
         builder.build_unconditional_branch(continue_block).unwrap();
         builder.position_at_end(continue_block);
@@ -45,7 +45,7 @@ pub(super) fn make_add<'ctx>(
         let store_types = type_store.get_types(&builder);
         let new_value_spot = unsafe {
             builder.build_gep(
-                TypeValueProvider::register(codegen_context).llvm_type(),
+                TypeValueProvider::register(context).llvm_type(),
                 store_types,
                 &[store_length],
                 "new_value_spot",
@@ -55,13 +55,13 @@ pub(super) fn make_add<'ctx>(
 
         let new_value = builder
             .build_load(
-                ValueProvider::register(codegen_context).llvm_type(),
+                ValueProvider::register(context).llvm_type(),
                 function.get_nth_param(1).unwrap().into_pointer_value(),
                 "new_value",
             )
             .unwrap();
 
-        TypeValueProvider::register(codegen_context).fill_in(
+        TypeValueProvider::register(context).fill_in(
             new_value_spot,
             &builder,
             function.get_first_param().unwrap().into_int_value(),
@@ -69,7 +69,7 @@ pub(super) fn make_add<'ctx>(
         );
 
         let new_length = builder
-            .build_int_add(store_length, codegen_context.const_u32(1), "added_length")
+            .build_int_add(store_length, context.const_u32(1), "added_length")
             .unwrap();
         builder
             .build_store(type_store.get_length_ptr(&builder), new_length)
@@ -81,13 +81,13 @@ pub(super) fn make_add<'ctx>(
 
 fn expand_capacity<'ctx>(
     type_store: TypeStoreOpaquePointer<'ctx>,
-    codegen_context: &'ctx Context,
+    context: &'ctx Context,
     builder: &inkwell::builder::Builder<'ctx>,
 ) {
     let store_capacity = type_store.get_capacity(builder);
 
     let new_capacity = builder
-        .build_int_mul(store_capacity, codegen_context.const_u32(2), "new_capacity")
+        .build_int_mul(store_capacity, context.const_u32(2), "new_capacity")
         .unwrap();
 
     builder
@@ -96,7 +96,7 @@ fn expand_capacity<'ctx>(
 
     let new_types = builder
         .build_array_malloc(
-            TypeValueProvider::register(codegen_context).llvm_type(),
+            TypeValueProvider::register(context).llvm_type(),
             new_capacity,
             "new_types",
         )

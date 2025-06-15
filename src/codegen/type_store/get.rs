@@ -7,15 +7,15 @@ pub(super) fn make_get<'ctx>(
     module_builder: &module::ModuleBuilder<'ctx>,
     type_store: TypeStoreOpaquePointer<'ctx>,
 ) -> TypeStoreGet<'ctx> {
-    module_builder.build_function::<_, _, TypeStoreGet>(|function, codegen_context, module| {
-        let builder = codegen_context.create_builder();
-        let entry = codegen_context.append_basic_block(function, "entry");
+    module_builder.build_function::<_, _, TypeStoreGet>(|function, context, module| {
+        let builder = context.create_builder();
+        let entry = context.append_basic_block(function, "entry");
         builder.position_at_end(entry);
 
         // TODO the types here should have some kinda array type, so we don't have to duck around
         // with the GEP manually
         let elements = type_store.get_types(&builder);
-        let element_type = TypeValueProvider::register(codegen_context).llvm_type();
+        let element_type = TypeValueProvider::register(context).llvm_type();
 
         let element_ptr = unsafe {
             builder.build_gep(
@@ -23,13 +23,13 @@ pub(super) fn make_get<'ctx>(
                 elements,
                 // TODO we should actually take the argument we got as the first arg and use it to
                 // access the right element based on that ID
-                &[codegen_context.const_u64(0)],
+                &[context.const_u64(0)],
                 "element",
             )
         }
         .unwrap();
 
-        let result = TypeValueProvider::register(codegen_context)
+        let result = TypeValueProvider::register(context)
             .opaque_pointer(element_ptr)
             .get_type_ptr(&builder);
 

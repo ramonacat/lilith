@@ -1,3 +1,4 @@
+// TODO review if all the levels of abstractions here still make sense and are needed
 pub(in crate::codegen) mod built_module;
 
 use inkwell::{
@@ -29,23 +30,23 @@ llvm_struct! {
     }
 }
 
-pub fn register(codegen_context: &Context) -> ModuleBuilderProvider<'_> {
+pub fn register(context: &Context) -> ModuleBuilderProvider<'_> {
     ModuleBuilderProvider {
-        global_constructors_provider: GlobalConstructorProvider::register(codegen_context),
-        codegen_context,
+        global_constructors_provider: GlobalConstructorProvider::register(context),
+        context,
     }
 }
 
 pub(in crate::codegen) struct ModuleBuilderProvider<'ctx> {
     global_constructors_provider: GlobalConstructorProvider<'ctx>,
-    codegen_context: &'ctx Context,
+    context: &'ctx Context,
 }
 
 impl<'ctx> ModuleBuilderProvider<'ctx> {
     pub fn make_builder(&self, name: &str) -> ModuleBuilder<'ctx> {
         ModuleBuilder::new(
             name,
-            self.codegen_context,
+            self.context,
             self.global_constructors_provider.llvm_type(),
         )
     }
@@ -56,28 +57,24 @@ pub(in crate::codegen) struct ModuleBuilder<'ctx> {
     global_constructors: Vec<GlobalConstructorOpaque<'ctx>>,
     global_constructor_type: StructType<'ctx>,
 
-    codegen_context: &'ctx Context,
+    context: &'ctx Context,
 }
 
 impl<'ctx> ModuleBuilder<'ctx> {
-    fn new(
-        name: &str,
-        codegen_context: &'ctx Context,
-        global_constructor_type: StructType<'ctx>,
-    ) -> Self {
-        let module = codegen_context.create_module(name);
+    fn new(name: &str, context: &'ctx Context, global_constructor_type: StructType<'ctx>) -> Self {
+        let module = context.create_module(name);
         // TODO this is a hack, it will link to the function defined in the main module, but we
         // should really invest into some real debug infrastructure
         module.add_function(
             "debug_type_definition",
-            DebugTypeDefinition::llvm_type(codegen_context),
+            DebugTypeDefinition::llvm_type(context),
             None,
         );
         Self {
             module,
             global_constructors: vec![],
             global_constructor_type,
-            codegen_context,
+            context,
         }
     }
 
@@ -88,14 +85,10 @@ impl<'ctx> ModuleBuilder<'ctx> {
         initialized_value: Option<GlobalValue<'ctx>>,
     ) {
         self.global_constructors.push(GlobalConstructorOpaque {
-            priority: self.codegen_context.const_u32(priority),
+            priority: self.context.const_u32(priority),
             target: constructor.as_global_value().as_pointer_value(),
             initialized_value: initialized_value.map_or_else(
-                || {
-                    self.codegen_context
-                        .ptr_type(AddressSpace::default())
-                        .const_null()
-                },
+                || self.context.ptr_type(AddressSpace::default()).const_null(),
                 GlobalValue::as_pointer_value,
             ),
         });
@@ -112,10 +105,10 @@ impl<'ctx> ModuleBuilder<'ctx> {
         &self,
         build: impl Fn(FunctionValue<'ctx>, &'ctx Context, &Module<'ctx>),
     ) -> TProcedure {
-        let signature = TProcedure::llvm_type(self.codegen_context);
+        let signature = TProcedure::llvm_type(self.context);
         let function = self.module.add_function(TProcedure::NAME, signature, None);
 
-        build(function, self.codegen_context, &self.module);
+        build(function, self.context, &self.module);
 
         TProcedure::new(function)
     }
@@ -128,10 +121,10 @@ impl<'ctx> ModuleBuilder<'ctx> {
         &self,
         build: impl Fn(FunctionValue<'ctx>, &'ctx Context, &Module<'ctx>),
     ) -> TFunction {
-        let signature = TFunction::llvm_type(self.codegen_context);
+        let signature = TFunction::llvm_type(self.context);
         let function = self.module.add_function(TFunction::NAME, signature, None);
 
-        build(function, self.codegen_context, &self.module);
+        build(function, self.context, &self.module);
 
         TFunction::new(function)
     }
@@ -141,7 +134,7 @@ impl<'ctx> ModuleBuilder<'ctx> {
             module,
             global_constructors,
             global_constructor_type,
-            codegen_context: _,
+            context: _,
         } = self;
 
         let global_constructors_array_type =

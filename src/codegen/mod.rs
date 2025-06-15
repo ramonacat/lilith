@@ -41,14 +41,14 @@ impl<'ctx> CodeGen<'ctx> {
         // TODO the following two should probably be fields on self (might need to introduce one
         // more level of abstraction tho, idk)
         builder: &Builder<'ctx>,
-        codegen_context: &'ctx Context,
+        context: &'ctx Context,
     ) -> ValueOpaquePointer<'ctx> {
         match expression {
             Expression::Add(left, right) => {
                 // TODO we should check if either of the values implements an interface that allows
                 // for the desired addition and execute on it, otherwise throw an error
-                let left = self.build_value(left, builder, codegen_context);
-                let right = self.build_value(right, builder, codegen_context);
+                let left = self.build_value(left, builder, context);
+                let right = self.build_value(right, builder, context);
 
                 let result_value = builder
                     .build_int_add(left.get_raw(builder), right.get_raw(builder), "sum_value")
@@ -57,17 +57,17 @@ impl<'ctx> CodeGen<'ctx> {
                 // TODO the .llvm_context here is needed because the value needs to know the
                 // context type, but perhaps we can switch up to dyn or something there to side-step the
                 // issue (I don't think the value should really have the knowledge of context type)
-                ValueProvider::register(codegen_context).make_value(
+                ValueProvider::register(context).make_value(
                     builder,
-                    codegen_context.const_u8(TypeTag::U64 as u8),
-                    codegen_context.const_u8(0),
-                    codegen_context.const_u16(0),
-                    codegen_context.const_u32(0),
+                    context.const_u8(TypeTag::U64 as u8),
+                    context.const_u8(0),
+                    context.const_u16(0),
+                    context.const_u32(0),
                     result_value,
                 )
             }
             Expression::Assignment(binding, value) => {
-                let expression = self.build_value(value, builder, codegen_context);
+                let expression = self.build_value(value, builder, context);
                 self.scope.insert(binding, expression);
                 expression
             }
@@ -180,18 +180,18 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         value: crate::bytecode::Value,
         builder: &Builder<'ctx>,
-        codegen_context: &'ctx Context,
+        context: &'ctx Context,
     ) -> ValueOpaquePointer<'ctx> {
         match value {
             crate::bytecode::Value::Literal(const_value) => {
                 // TODO add some comfort methods for simple i*_type constants
                 ValueProvider::register(self.context).make_value(
                     builder,
-                    codegen_context.const_u8(TypeTag::U64 as u8),
-                    codegen_context.const_u8(0),
-                    codegen_context.const_u16(0),
-                    codegen_context.const_u32(0),
-                    codegen_context.const_u64(match const_value {
+                    context.const_u8(TypeTag::U64 as u8),
+                    context.const_u8(0),
+                    context.const_u16(0),
+                    context.const_u32(0),
+                    context.const_u64(match const_value {
                         ConstValue::U64(value) => value,
                     }),
                 )
@@ -201,7 +201,7 @@ impl<'ctx> CodeGen<'ctx> {
                 *self.scope.get(&identifier).unwrap()
             }
             crate::bytecode::Value::Computed(expression) => {
-                self.build_expression(*expression, builder, codegen_context)
+                self.build_expression(*expression, builder, context)
             }
         }
     }
