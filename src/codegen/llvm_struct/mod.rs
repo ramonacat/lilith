@@ -1,4 +1,5 @@
 pub(in crate::codegen) mod basic_value_enum;
+pub(in crate::codegen) mod opaque_struct;
 pub(in crate::codegen) mod representations;
 
 #[macro_export]
@@ -64,6 +65,16 @@ macro_rules! llvm_struct {
             $(pub(in $crate::codegen) $field_name: $field_type),+
         }
 
+        paste::paste!{
+            impl $name {
+                pub(in $crate::codegen) const fn into_opaque<'ctx>(self) -> [<$name Opaque>]<'ctx> {
+                    [<$name Opaque>] {
+                        $($field_name: $crate::codegen::llvm_struct::representations::ConstOrValue::Const(self.$field_name)),*
+                    }
+                }
+            }
+        }
+
         impl<'ctx> LlvmRepresentation<'ctx> for $name {
             type LlvmType = inkwell::types::StructType<'ctx>;
             type LlvmValue = inkwell::values::StructValue<'ctx>;
@@ -77,9 +88,102 @@ macro_rules! llvm_struct {
 
         impl<'ctx>
             $crate::codegen::llvm_struct::representations::OperandValue<'ctx>
+                for $name {
+            // TODO could this somehow work with or replace make_value?
+            #[allow(unused)]
+            fn build_move_into(
+                self,
+                context: &'ctx inkwell::context::Context,
+                builder: &inkwell::builder::Builder<'ctx>,
+                target: PointerValue<'ctx>,
+            ) {
+                let llvm_type = $name::llvm_type(context);
+
+                paste::paste!{
+                    [<$name Provider>]::new(context)
+                        .fill_in(target, builder, self.into_opaque());
+                }
+            }
+
+            fn build_store_into(
+                &self,
+                _context: &'ctx inkwell::context::Context,
+                _builder: &inkwell::builder::Builder<'ctx>,
+                _target: PointerValue<'ctx>,
+            ) {
+                todo!();
+            }
+        }
+
+        impl<'ctx>
+            $crate::codegen::llvm_struct::representations::OperandValue<'ctx>
                 // TODO this should be also implemented for $name and [<$name Opaque>]
                 for $crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, $name> {
             // TODO could this somehow work with or replace make_value?
+            #[allow(unused)]
+            fn build_move_into(
+                self,
+                context: &'ctx inkwell::context::Context,
+                builder: &inkwell::builder::Builder<'ctx>,
+                target: PointerValue<'ctx>,
+            ) {
+                let llvm_type = $name::llvm_type(context);
+
+                let mut index = 0;
+                $(
+                    let struct_value:$crate::codegen::llvm_struct::representations::ConstOrValue<
+                        'ctx,
+                        $field_type
+                    > =
+                        match self {
+                            $crate::codegen::llvm_struct::representations::ConstOrValue::Const(_value) => {
+                                todo!();
+                            },
+                            $crate::codegen::llvm_struct::representations::ConstOrValue::Value(value) => {
+                                // TODO for some reason just using value.get_field(...) returns a
+                                // struct. This dance with the stack seems to work fine though.
+                                let stack_location = builder.build_alloca(value.get_type(), "").unwrap();
+                                builder.build_store(stack_location, value).unwrap();
+
+                                let gep = unsafe { builder.build_gep(
+                                    value.get_type(),
+                                    stack_location,
+                                    &[
+                                        context.const_u32(0),
+                                        context.const_u32(index)
+                                    ],
+                                    ""
+                                ) }.unwrap();
+
+                                $crate::codegen::llvm_struct::representations::ConstOrValue::Value(
+                                    builder.build_load(
+                                        value.get_type().get_field_type_at_index(index).unwrap(),
+                                        gep,
+                                        ""
+                                    ).unwrap().into_value()
+                                )
+                            }
+                        };
+
+                    let field_gep = builder.build_struct_gep(
+                        llvm_type,
+                        target,
+                        index,
+                        stringify!([<$field_name _gep>])
+                    ).unwrap();
+
+                    struct_value.build_store_into(
+                        context,
+                        builder,
+                        field_gep,
+                    );
+
+                    #[allow(unused_assignments)]
+                    {
+                        index += 1;
+                    }
+                )*
+            }
             #[allow(unused)]
             fn build_store_into(
                 &self,
@@ -159,43 +263,6 @@ macro_rules! llvm_struct {
                     ),+
             }
 
-            impl<'ctx> [<$name Opaque>]<'ctx> {
-                pub(in $crate::codegen) fn fill_in(
-                    &self,
-                    target: inkwell::values::PointerValue<'ctx>,
-                    context: &'ctx inkwell::context::Context,
-                    builder: &inkwell::builder::Builder<'ctx>,
-                ) {
-                    let llvm_type = <$name>::llvm_type(context);
-                    let mut index:u32 = 0;
-
-                    $({
-                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&context, &self.$field_name);
-
-                        let field_gep = builder
-                            .build_struct_gep(
-                                llvm_type,
-                                target,
-                                index,
-                                stringify!([<$field_name _gep>])
-                            )
-                            .unwrap();
-
-                        self.$field_name.build_store_into(
-                            context,
-                            builder,
-                            field_gep,
-                        );
-
-                        // TODO should we make this comptime by using macro recursion tricks?
-                        #[allow(unused_assignments)]
-                        {
-                            index += 1;
-                        }
-                    })+
-                }
-            }
-
             #[derive(Debug, Clone, Copy)]
             pub(in $crate::codegen) struct [<$name OpaquePointer>]<'ctx> {
                 pointer: inkwell::values::PointerValue<'ctx>,
@@ -250,38 +317,6 @@ macro_rules! llvm_struct {
                     [<$name OpaquePointer>]::new(pointer, self.context, self.llvm_type)
                 }
 
-                // TODO Arrays sohuld probably be handled outside here, as actually a generic over
-                // the struct types defined by the macro
-                // TODO this should probably return a stronger type
-                // TODO we should also have make_uninitialized_array
-                pub(in $crate::codegen) fn make_array(
-                    &self,
-                    builder: &inkwell::builder::Builder<'ctx>,
-                    items: &[[<$name Opaque>]<'ctx>]
-                ) -> inkwell::values::PointerValue<'ctx> {
-                    let items_allocation = builder
-                        .build_array_malloc(
-                            self.llvm_type(),
-                            self.context.const_u32(u32::try_from(items.len()).unwrap()),
-                            "array_elements",
-                        ).unwrap();
-
-                    for (index, item) in items.into_iter().enumerate() {
-                        let item_pointer = unsafe {
-                            builder.build_gep(
-                                self.llvm_type(),
-                                items_allocation,
-                                &[self.context.const_u32(u32::try_from(index).unwrap())],
-                                "item"
-                            )
-                        }.unwrap();
-
-                        item.fill_in(item_pointer, self.context, builder);
-                    }
-
-                    items_allocation
-                }
-
                 pub(in $crate::codegen) fn make_value(
                     &self,
                     builder: &inkwell::builder::Builder<'ctx>,
@@ -298,6 +333,7 @@ macro_rules! llvm_struct {
                     self.opaque_pointer(target)
                 }
 
+                // TODO [<$name Opaque>] also has an impl of fill_in, unify them
                 pub(in $crate::codegen) fn fill_in(
                     &self,
                     target: inkwell::values::PointerValue<'ctx>,

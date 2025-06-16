@@ -20,8 +20,16 @@ where
 }
 
 pub(in crate::codegen) trait OperandValue<'ctx> {
+    // TODO can we get rid of this and only have build_move_into?
     fn build_store_into(
         &self,
+        context: &'ctx Context,
+        builder: &Builder<'ctx>,
+        target: PointerValue<'ctx>,
+    );
+
+    fn build_move_into(
+        self,
         context: &'ctx Context,
         builder: &Builder<'ctx>,
         target: PointerValue<'ctx>,
@@ -63,6 +71,21 @@ macro_rules! llvm_representation {
         }
 
         impl<'ctx> OperandValue<'ctx> for ConstOrValue<'ctx, $type> {
+            fn build_move_into(
+                self,
+                context: &'ctx Context,
+                builder: &Builder<'ctx>,
+                target: PointerValue<'ctx>,
+            ) {
+                let value = match self {
+                    ConstOrValue::Value(value) => value,
+                    ConstOrValue::Const(raw) => <$type as LlvmRepresentation<'ctx>>::llvm_type(context)
+                        .const_int($to_int(&raw), false)
+                };
+
+                builder.build_store(target, value).unwrap();
+            }
+
             fn build_store_into(
                 &self,
                 context: &'ctx Context,
@@ -93,6 +116,25 @@ macro_rules! llvm_representation {
         }
 
         impl<'ctx, $generic> OperandValue<'ctx> for ConstOrValue<'ctx, $type> {
+            fn build_move_into(
+                self,
+                context: &'ctx Context,
+                builder: &Builder<'ctx>,
+                target: PointerValue<'ctx>,
+            ) {
+                let value = match self {
+                    ConstOrValue::Const(raw) => context
+                        .i64_type()
+                        .const_int(
+                            $to_int(&raw),
+                            false
+                        )
+                        .const_to_pointer(<$type>::llvm_type(context)),
+                    ConstOrValue::Value(value) => value,
+                };
+                builder.build_store(target, value).unwrap();
+            }
+
             fn build_store_into(
                 &self,
                 context: &'ctx Context,

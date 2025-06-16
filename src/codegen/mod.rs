@@ -13,15 +13,12 @@ use std::collections::HashMap;
 use context::type_maker::{Function, Procedure as _};
 use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
-use llvm_struct::representations::ConstOrValue;
+use llvm_struct::{opaque_struct::LlvmArray, representations::ConstOrValue};
 use module::built_module::ModuleInterface as _;
 use type_store::TypeStoreInterface;
 use types::{
     classes::ClassId,
-    functions::{
-        FunctionArgumentOpaque, FunctionArgumentProvider, FunctionSignatureOpaque,
-        FunctionSignatureProvider,
-    },
+    functions::{FunctionArgument, FunctionSignatureOpaque, FunctionSignatureProvider},
     values::{ValueOpaque, ValueOpaquePointer, ValueProvider},
 };
 
@@ -103,16 +100,16 @@ impl<'ctx> CodeGen<'ctx> {
         builtins::register(&execution_engine, &module, self.context);
 
         let type_store_module = type_store::register(self.context);
-        // TODO instead of a HashMap do we want a strongly-typed struct here?
         let type_store_api: TypeStoreInterface =
             TypeStoreInterface::expose_to(&module, self.context);
 
-        let arguments = FunctionArgumentProvider::new(self.context).make_array(
-            &builder,
-            &[FunctionArgumentOpaque {
-                name: ConstOrValue::Const(Identifier::new(1)),
-                type_id: ConstOrValue::Const(TypeTag::U64.into()),
+        let arguments = LlvmArray::const_length_new(
+            [FunctionArgument {
+                name: Identifier::new(1),
+                type_id: TypeTag::U64.into(),
             }],
+            self.context,
+            &builder,
         );
 
         let signature_ptr = FunctionSignatureProvider::new(self.context).make_value(
@@ -121,7 +118,7 @@ impl<'ctx> CodeGen<'ctx> {
                 class_id: ConstOrValue::Const(ClassId::none()),
                 argument_count: ConstOrValue::Const(1),
                 return_type_id: ConstOrValue::Const(TypeTag::U64.into()),
-                arguments: ConstOrValue::Value(arguments),
+                arguments: ConstOrValue::Value(arguments.as_pointer()),
             },
         );
 
