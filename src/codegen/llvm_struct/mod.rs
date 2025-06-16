@@ -106,15 +106,6 @@ macro_rules! llvm_struct {
                         .fill_in(target, builder, self.into_opaque());
                 }
             }
-
-            fn build_store_into(
-                &self,
-                _context: &'ctx inkwell::context::Context,
-                _builder: &inkwell::builder::Builder<'ctx>,
-                _target: PointerValue<'ctx>,
-            ) {
-                todo!();
-            }
         }
 
         impl<'ctx>
@@ -174,7 +165,7 @@ macro_rules! llvm_struct {
                         stringify!([<$field_name _gep>])
                     ).unwrap();
 
-                    struct_value.build_store_into(
+                    struct_value.build_move_into(
                         context,
                         builder,
                         field_gep,
@@ -186,72 +177,6 @@ macro_rules! llvm_struct {
                     }
                 )*
             }
-
-            #[allow(unused)]
-            fn build_store_into(
-                &self,
-                context: &'ctx inkwell::context::Context,
-                builder: &inkwell::builder::Builder<'ctx>,
-                target: PointerValue<'ctx>,
-            ) {
-                let llvm_type = $name::llvm_type(context);
-
-                let mut index = 0;
-                $(
-                    let struct_value:$crate::codegen::llvm_struct::representations::ConstOrValue<
-                        'ctx,
-                        $field_type
-                    > =
-                        match self {
-                            $crate::codegen::llvm_struct::representations::ConstOrValue::Const(_value) => {
-                                todo!();
-                            },
-                            $crate::codegen::llvm_struct::representations::ConstOrValue::Value(value) => {
-                                // TODO for some reason just using value.get_field(...) returns a
-                                // struct. This dance with the stack seems to work fine though.
-                                let stack_location = builder.build_alloca(value.get_type(), "").unwrap();
-                                builder.build_store(stack_location, *value).unwrap();
-
-                                let gep = unsafe { builder.build_gep(
-                                    value.get_type(),
-                                    stack_location,
-                                    &[
-                                        context.const_u32(0),
-                                        context.const_u32(index)
-                                    ],
-                                    ""
-                                ) }.unwrap();
-
-                                $crate::codegen::llvm_struct::representations::ConstOrValue::Value(
-                                    builder.build_load(
-                                        value.get_type().get_field_type_at_index(index).unwrap(),
-                                        gep,
-                                        ""
-                                    ).unwrap().into_value()
-                                )
-                            }
-                        };
-
-                    let field_gep = builder.build_struct_gep(
-                        llvm_type,
-                        target,
-                        index,
-                        stringify!([<$field_name _gep>])
-                    ).unwrap();
-
-                    struct_value.build_store_into(
-                        context,
-                        builder,
-                        field_gep,
-                    );
-
-                    #[allow(unused_assignments)]
-                    {
-                        index += 1;
-                    }
-                )*
-            }
-
         }
 
         paste::paste! {
@@ -354,7 +279,7 @@ macro_rules! llvm_struct {
                             )
                             .unwrap();
 
-                        values.$field_name.build_store_into(
+                        values.$field_name.build_move_into(
                             &self.context,
                             builder,
                             field_gep,

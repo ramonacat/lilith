@@ -20,14 +20,6 @@ where
 }
 
 pub(in crate::codegen) trait OperandValue<'ctx> {
-    // TODO can we get rid of this and only have build_move_into?
-    fn build_store_into(
-        &self,
-        context: &'ctx Context,
-        builder: &Builder<'ctx>,
-        target: PointerValue<'ctx>,
-    );
-
     fn build_move_into(
         self,
         context: &'ctx Context,
@@ -42,7 +34,6 @@ pub(in crate::codegen) trait LlvmRepresentation<'ctx>: Sized {
     type LlvmType: AnyType<'ctx>;
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType;
-
     fn assert_valid(context: &'ctx Context, value: &ConstOrValue<'ctx, Self>);
 }
 
@@ -88,21 +79,6 @@ macro_rules! llvm_representation {
 
                 builder.build_store(target, value).unwrap();
             }
-
-            fn build_store_into(
-                &self,
-                context: &'ctx Context,
-                builder: &Builder<'ctx>,
-                target: PointerValue<'ctx>,
-            ) {
-                let value = match self {
-                    ConstOrValue::Value(value) => *value,
-                    ConstOrValue::Const(raw) => <$type as LlvmRepresentation<'ctx>>::llvm_type(context)
-                        .const_int($to_int(raw), false)
-                };
-
-                builder.build_store(target, value).unwrap();
-            }
         }
     };
     (@ptr<$generic:ident> $type:ty, $to_int:expr) => {
@@ -137,25 +113,6 @@ macro_rules! llvm_representation {
                 };
                 builder.build_store(target, value).unwrap();
             }
-
-            fn build_store_into(
-                &self,
-                context: &'ctx Context,
-                builder: &Builder<'ctx>,
-                target: PointerValue<'ctx>,
-            ) {
-                let value = match self {
-                    ConstOrValue::Const(raw) => context
-                        .i64_type()
-                        .const_int(
-                            $to_int(raw),
-                            false
-                        )
-                        .const_to_pointer(<$type>::llvm_type(context)),
-                    ConstOrValue::Value(value) => *value,
-                };
-                builder.build_store(target, value).unwrap();
-            }
         }
     };
 }
@@ -170,6 +127,5 @@ llvm_representation!(@int TypeTag, 8, |raw:&TypeTag| *raw as u64);
 llvm_representation!(@int ClassId, 16, |raw:&ClassId| u64::from(raw.as_u16()));
 llvm_representation!(@int Identifier, 32, |raw:&Identifier| u64::from(raw.as_u32()));
 llvm_representation!(@int TypeId, 32, |raw:&TypeId| u64::from(raw.as_u32()));
-// TODO probably separate representations for function and non-function values?
 llvm_representation!(@ptr<T> *const T, |raw: &*const T| *raw as usize as u64);
 llvm_representation!(@ptr<T> Option<*const T>, |raw: &Option<*const T>| raw.map_or(0, |x| x as usize as u64));
