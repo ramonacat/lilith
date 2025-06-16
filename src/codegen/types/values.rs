@@ -4,7 +4,10 @@ use crate::{
     bytecode::TypeTag,
     codegen::{
         context_ergonomics::ContextErgonomics,
-        llvm_struct::{basic_value_enum::IntoValue, representations::LlvmRepresentation},
+        llvm_struct::{
+            basic_value_enum::IntoValue,
+            representations::{LlvmRepresentation, OperandValue},
+        },
         types::classes::ClassId,
     },
     llvm_struct,

@@ -60,8 +60,6 @@ macro_rules! llvm_struct {
     (struct $name:ident { $($field_name:ident: $field_type:ty),+ }) => {
         #[repr(C)]
         #[allow(unused)]
-        // TODO this should not be clone, it is a hack for the unholy mess of build_store_into
-        #[derive(Clone)]
         pub(in $crate::codegen) struct $name {
             $(pub(in $crate::codegen) $field_name: $field_type),+
         }
@@ -72,20 +70,31 @@ macro_rules! llvm_struct {
 
             fn assert_valid(_context: &'ctx inkwell::context::Context, _value: &$crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, Self>) {}
 
+            fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
+                paste::paste! { [<$name Provider>]::register(context).llvm_type() }
+            }
+        }
+
+        impl<'ctx>
+            $crate::codegen::llvm_struct::representations::OperandValue<'ctx>
+                for $crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, $name> {
             // TODO could this somehow work with or replace make_value?
             #[allow(unused)]
             fn build_store_into(
+                &self,
                 context: &'ctx inkwell::context::Context,
                 builder: &inkwell::builder::Builder<'ctx>,
                 target: PointerValue<'ctx>,
-                raw: &$crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, Self>
             ) {
-                let llvm_type = Self::llvm_type(context);
+                let llvm_type = $name::llvm_type(context);
 
                 let mut index = 0;
                 $(
-                    let struct_value =
-                        match raw {
+                    let struct_value:$crate::codegen::llvm_struct::representations::ConstOrValue<
+                        'ctx,
+                        $field_type
+                    > =
+                        match self {
                             $crate::codegen::llvm_struct::representations::ConstOrValue::Const(_value) => {
                                 todo!();
                             },
@@ -106,7 +115,11 @@ macro_rules! llvm_struct {
                                 ) }.unwrap();
 
                                 $crate::codegen::llvm_struct::representations::ConstOrValue::Value(
-                                    builder.build_load(value.get_type().get_field_type_at_index(index).unwrap(), gep, "").unwrap().into_value()
+                                    builder.build_load(
+                                        value.get_type().get_field_type_at_index(index).unwrap(),
+                                        gep,
+                                        ""
+                                    ).unwrap().into_value()
                                 )
                             }
                         };
@@ -117,11 +130,11 @@ macro_rules! llvm_struct {
                         index,
                         stringify!([<$field_name _gep>])
                     ).unwrap();
-                    <$field_type as LlvmRepresentation<'ctx>>::build_store_into(
+
+                    struct_value.build_store_into(
                         context,
                         builder,
                         field_gep,
-                        &struct_value
                     );
 
                     #[allow(unused_assignments)]
@@ -131,9 +144,6 @@ macro_rules! llvm_struct {
                 )*
             }
 
-            fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
-                paste::paste! { [<$name Provider>]::register(context).llvm_type() }
-            }
         }
 
         paste::paste! {
@@ -171,11 +181,10 @@ macro_rules! llvm_struct {
                             )
                             .unwrap();
 
-                        <$field_type as LlvmRepresentation<'ctx>>::build_store_into(
+                        self.$field_name.build_store_into(
                             context,
                             builder,
                             field_gep,
-                            &self.$field_name
                         );
 
                         // TODO should we make this comptime by using macro recursion tricks?
@@ -308,11 +317,10 @@ macro_rules! llvm_struct {
                             )
                             .unwrap();
 
-                        <$field_type as LlvmRepresentation<'ctx>>::build_store_into(
+                        values.$field_name.build_store_into(
                             &self.context,
                             builder,
                             field_gep,
-                            &values.$field_name
                         );
 
                         // TODO should we make this comptime by using macro recursion tricks?

@@ -1,4 +1,5 @@
 // TODO review if all the levels of abstractions here still make sense and are needed
+use crate::codegen::llvm_struct::representations::OperandValue;
 pub(in crate::codegen) mod built_module;
 
 use inkwell::{

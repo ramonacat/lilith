@@ -19,18 +19,21 @@ where
     Value(T::LlvmValue),
 }
 
+pub(in crate::codegen) trait OperandValue<'ctx> {
+    fn build_store_into(
+        &self,
+        context: &'ctx Context,
+        builder: &Builder<'ctx>,
+        target: PointerValue<'ctx>,
+    );
+}
+
 // TODO is there anything we can do so context doesn't need to be passed all the time?
 pub(in crate::codegen) trait LlvmRepresentation<'ctx>: Sized {
     type LlvmValue: BasicValue<'ctx>;
     type LlvmType: BasicType<'ctx>;
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType;
-    fn build_store_into(
-        context: &'ctx Context,
-        builder: &Builder<'ctx>,
-        target: PointerValue<'ctx>,
-        raw: &ConstOrValue<'ctx, Self>,
-    );
 
     fn assert_valid(context: &'ctx Context, value: &ConstOrValue<'ctx, Self>);
 }
@@ -43,20 +46,6 @@ macro_rules! llvm_representation {
 
             fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
                 paste::paste!(context.[<i $width _type>]())
-            }
-
-            fn build_store_into(
-                context: &'ctx Context,
-                builder: &Builder<'ctx>,
-                target: PointerValue<'ctx>,
-                raw: &ConstOrValue<'ctx, Self>
-            ) {
-                let value = match raw {
-                    ConstOrValue::Value(value) => *value,
-                    ConstOrValue::Const(raw) => Self::llvm_type(context).const_int($to_int(raw), false)
-                };
-
-                builder.build_store(target, value).unwrap();
             }
 
             fn assert_valid(context: &'ctx inkwell::context::Context, value: &ConstOrValue<'ctx, Self>) {
@@ -72,6 +61,23 @@ macro_rules! llvm_representation {
                 );
             }
         }
+
+        impl<'ctx> OperandValue<'ctx> for ConstOrValue<'ctx, $type> {
+            fn build_store_into(
+                &self,
+                context: &'ctx Context,
+                builder: &Builder<'ctx>,
+                target: PointerValue<'ctx>,
+            ) {
+                let value = match self {
+                    ConstOrValue::Value(value) => *value,
+                    ConstOrValue::Const(raw) => <$type as LlvmRepresentation<'ctx>>::llvm_type(context)
+                        .const_int($to_int(raw), false)
+                };
+
+                builder.build_store(target, value).unwrap();
+            }
+        }
     };
     (@ptr<$generic:ident> $type:ty, $to_int:expr) => {
         impl<'ctx, $generic> LlvmRepresentation<'ctx> for $type {
@@ -82,28 +88,28 @@ macro_rules! llvm_representation {
                 context.ptr_type(AddressSpace::default())
             }
 
-            // TODO this should really be a method on ConstOrValue, that takes self, instead of
-            // this unhinged raw dance?
+            fn assert_valid(_context: &'ctx inkwell::context::Context, _value: &ConstOrValue<'ctx, Self>) {
+            }
+        }
+
+        impl<'ctx, $generic> OperandValue<'ctx> for ConstOrValue<'ctx, $type> {
             fn build_store_into(
+                &self,
                 context: &'ctx Context,
                 builder: &Builder<'ctx>,
                 target: PointerValue<'ctx>,
-                raw: &ConstOrValue<'ctx, Self>
             ) {
-                let value = match raw {
+                let value = match self {
                     ConstOrValue::Const(raw) => context
                         .i64_type()
                         .const_int(
                             $to_int(raw),
                             false
                         )
-                        .const_to_pointer(Self::llvm_type(context)),
+                        .const_to_pointer(<$type>::llvm_type(context)),
                     ConstOrValue::Value(value) => *value,
                 };
                 builder.build_store(target, value).unwrap();
-            }
-
-            fn assert_valid(_context: &'ctx inkwell::context::Context, _value: &ConstOrValue<'ctx, Self>) {
             }
         }
     };
