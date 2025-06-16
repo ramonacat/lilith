@@ -3,7 +3,10 @@ use inkwell::{IntPredicate, context::Context};
 use super::{TypeStoreOpaquePointer, TypeValueOpaque, TypeValueProvider};
 use crate::{
     bytecode::Value,
-    codegen::{ContextErgonomics as _, module, types::values::ValueProvider},
+    codegen::{
+        ContextErgonomics, llvm_struct::representations::ConstOrValue, module,
+        types::values::ValueProvider,
+    },
 };
 
 make_function_type!(TypeStoreAdd, (id:u32, value: *const Value));
@@ -65,8 +68,8 @@ pub(super) fn make_add<'ctx>(
             new_value_spot,
             &builder,
             TypeValueOpaque {
-                id: function.get_first_param().unwrap().into_int_value(),
-                r#type: new_value.into_struct_value(),
+                id: ConstOrValue::Value(function.get_first_param().unwrap().into_int_value()),
+                r#type: ConstOrValue::Value(new_value.into_struct_value()),
             },
         );
 

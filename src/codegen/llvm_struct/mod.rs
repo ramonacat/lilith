@@ -60,6 +60,8 @@ macro_rules! llvm_struct {
     (struct $name:ident { $($field_name:ident: $field_type:ty),+ }) => {
         #[repr(C)]
         #[allow(unused)]
+        // TODO this should not be clone, it is a hack for the unholy mess of build_store_into
+        #[derive(Clone)]
         pub(in $crate::codegen) struct $name {
             $(pub(in $crate::codegen) $field_name: $field_type),+
         }
@@ -68,12 +70,67 @@ macro_rules! llvm_struct {
             type LlvmType = inkwell::types::StructType<'ctx>;
             type LlvmValue = inkwell::values::StructValue<'ctx>;
 
-            // TODO why do we take the context as ref here? the trait is implemented for refs only
-        // anyway
-            fn assert_valid(_context: &'ctx inkwell::context::Context, _value: Self::LlvmValue) {}
+            fn assert_valid(_context: &'ctx inkwell::context::Context, _value: &$crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, Self>) {}
 
-            // TODO why do we take the context as ref here? the trait is implemented for refs only
-        // anyway
+            // TODO could this somehow work with or replace make_value?
+            #[allow(unused)]
+            fn build_store_into(
+                context: &'ctx inkwell::context::Context,
+                builder: &inkwell::builder::Builder<'ctx>,
+                target: PointerValue<'ctx>,
+                raw: &$crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, Self>
+            ) {
+                let llvm_type = Self::llvm_type(context);
+
+                let mut index = 0;
+                $(
+                    let struct_value =
+                        match raw {
+                            $crate::codegen::llvm_struct::representations::ConstOrValue::Const(_value) => {
+                                todo!();
+                            },
+                            $crate::codegen::llvm_struct::representations::ConstOrValue::Value(value) => {
+                                // TODO for some reason just using value.get_field(...) returns a
+                                // struct. This dance with the stack seems to work fine though.
+                                let stack_location = builder.build_alloca(value.get_type(), "").unwrap();
+                                builder.build_store(stack_location, *value).unwrap();
+
+                                let gep = unsafe { builder.build_gep(
+                                    value.get_type(),
+                                    stack_location,
+                                    &[
+                                        context.const_u32(0),
+                                        context.const_u32(index)
+                                    ],
+                                    ""
+                                ) }.unwrap();
+
+                                $crate::codegen::llvm_struct::representations::ConstOrValue::Value(
+                                    builder.build_load(value.get_type().get_field_type_at_index(index).unwrap(), gep, "").unwrap().into_value()
+                                )
+                            }
+                        };
+
+                    let field_gep = builder.build_struct_gep(
+                        llvm_type,
+                        target,
+                        index,
+                        stringify!([<$field_name _gep>])
+                    ).unwrap();
+                    <$field_type as LlvmRepresentation<'ctx>>::build_store_into(
+                        context,
+                        builder,
+                        field_gep,
+                        &struct_value
+                    );
+
+                    #[allow(unused_assignments)]
+                    {
+                        index += 1;
+                    }
+                )*
+            }
+
             fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
                 paste::paste! { [<$name Provider>]::register(context).llvm_type() }
             }
@@ -82,7 +139,13 @@ macro_rules! llvm_struct {
         paste::paste! {
             #[allow(unused)]
             pub(in $crate::codegen) struct [<$name Opaque>]<'ctx> {
-                $(pub(in $crate::codegen) $field_name: <$field_type as LlvmRepresentation<'ctx>>::LlvmValue),+
+                $(
+                    pub(in $crate::codegen) $field_name:
+                        $crate::codegen::llvm_struct::representations::ConstOrValue<
+                            'ctx,
+                            $field_type
+                        >
+                    ),+
             }
 
             impl<'ctx> [<$name Opaque>]<'ctx> {
@@ -97,8 +160,7 @@ macro_rules! llvm_struct {
                     let mut index:u32 = 0;
 
                     $({
-                        // TODO check why we need a double reference for context here and fix it
-                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&context, self.$field_name);
+                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&context, &self.$field_name);
 
                         let field_gep = builder
                             .build_struct_gep(
@@ -109,7 +171,12 @@ macro_rules! llvm_struct {
                             )
                             .unwrap();
 
-                        builder.build_store(field_gep, self.$field_name).unwrap();
+                        <$field_type as LlvmRepresentation<'ctx>>::build_store_into(
+                            context,
+                            builder,
+                            field_gep,
+                            &self.$field_name
+                        );
 
                         // TODO should we make this comptime by using macro recursion tricks?
                         #[allow(unused_assignments)]
@@ -158,6 +225,7 @@ macro_rules! llvm_struct {
             impl<'ctx> [<$name Provider>]<'ctx> {
                 // TODO rename to new
                 pub(in $crate::codegen) fn register(context: &'ctx inkwell::context::Context) -> Self {
+                    // TODO get the existing struct if there's already one
                     let llvm_type = context.named_struct(stringify!($name), &[
                         $(<$field_type>::llvm_type(&context).into()),+
                     ]);
@@ -170,17 +238,6 @@ macro_rules! llvm_struct {
                     pointer: PointerValue<'ctx>
                 ) -> [<$name OpaquePointer>]<'ctx> {
                     [<$name OpaquePointer>]::new(pointer, self.context, self.llvm_type)
-                }
-
-                // TODO is this even used? if yes, move to the impl for Opaque
-                #[allow(unused)]
-                pub(in $crate::codegen) fn opaque_to_value(
-                    &self,
-                    opaque: [<$name Opaque>]<'ctx>
-                ) -> inkwell::values::StructValue<'ctx> {
-                    self.llvm_type.const_named_struct(&[
-                        $(opaque.$field_name.into()),+
-                    ])
                 }
 
                 // TODO Arrays sohuld probably be handled outside here, as actually a generic over
@@ -215,15 +272,6 @@ macro_rules! llvm_struct {
                     items_allocation
                 }
 
-                // TODO This should take [<$name Opaque>] instead of all the fields
-                // TODO Each field in [<$name Opaque>] should be:
-                //      - for complex types an enum of:
-                //          - (type)Opaque
-                //          - (type)OpaqueValue
-                //      - for primitives:
-                //          - impl BasicValue for (type)
-                //          - (type)
-                //
                 pub(in $crate::codegen) fn make_value(
                     &self,
                     builder: &inkwell::builder::Builder<'ctx>,
@@ -249,7 +297,7 @@ macro_rules! llvm_struct {
                     let mut index:u32 = 0;
 
                     $({
-                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&self.context, values.$field_name);
+                        <$field_type as LlvmRepresentation<'ctx>>::assert_valid(&self.context, &values.$field_name);
 
                         let field_gep = builder
                             .build_struct_gep(
@@ -260,7 +308,12 @@ macro_rules! llvm_struct {
                             )
                             .unwrap();
 
-                        builder.build_store(field_gep, values.$field_name).unwrap();
+                        <$field_type as LlvmRepresentation<'ctx>>::build_store_into(
+                            &self.context,
+                            builder,
+                            field_gep,
+                            &values.$field_name
+                        );
 
                         // TODO should we make this comptime by using macro recursion tricks?
                         index += 1;

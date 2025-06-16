@@ -12,6 +12,7 @@ use inkwell::{
 use super::{
     builtins::DebugTypeDefinition,
     context::type_maker::{Function, Procedure},
+    llvm_struct::representations::ConstOrValue,
 };
 use crate::codegen::{
     context_ergonomics::ContextErgonomics,
@@ -84,13 +85,16 @@ impl<'ctx> ModuleBuilder<'ctx> {
         constructor: &GlobalConstructorFunction<'ctx>,
         initialized_value: Option<GlobalValue<'ctx>>,
     ) {
+        // TODO the manual creation of ConstOrValue isn't very pretty, let's look into some
+        // automatic coercion, maybe implement into not generially, but for each type, since we
+        // have the macros for LlvmRepresentation anyway?
         self.global_constructors.push(GlobalConstructorOpaque {
-            priority: self.context.const_u32(priority),
-            target: constructor.as_global_value().as_pointer_value(),
-            initialized_value: initialized_value.map_or_else(
+            priority: ConstOrValue::Const(priority),
+            target: ConstOrValue::Value(constructor.as_global_value().as_pointer_value()),
+            initialized_value: ConstOrValue::Value(initialized_value.map_or_else(
                 || self.context.ptr_type(AddressSpace::default()).const_null(),
                 GlobalValue::as_pointer_value,
-            ),
+            )),
         });
     }
 
@@ -147,10 +151,22 @@ impl<'ctx> ModuleBuilder<'ctx> {
         let constructors: Vec<_> = global_constructors
             .iter()
             .map(|x| {
+                // TODO this is very hacky, perhaps create $name Const for structs which are always
+                // made from consts?
+                let ConstOrValue::Const(priority) = x.priority else {
+                    todo!();
+                };
+                let ConstOrValue::Value(target) = x.target else {
+                    todo!();
+                };
+                let ConstOrValue::Value(initialized_value) = x.initialized_value else {
+                    todo!();
+                };
+
                 global_constructor_type.const_named_struct(&[
-                    x.priority.into(),
-                    x.target.into(),
-                    x.initialized_value.into(),
+                    self.context.const_u32(priority).into(),
+                    target.into(),
+                    initialized_value.into(),
                 ])
             })
             .collect();

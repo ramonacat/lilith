@@ -13,9 +13,11 @@ use std::collections::HashMap;
 use context::type_maker::{Function, Procedure as _};
 use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
+use llvm_struct::representations::ConstOrValue;
 use module::built_module::ModuleInterface as _;
 use type_store::TypeStoreInterface;
 use types::{
+    classes::ClassId,
     functions::{
         FunctionArgumentOpaque, FunctionArgumentProvider, FunctionSignatureOpaque,
         FunctionSignatureProvider,
@@ -63,11 +65,11 @@ impl<'ctx> CodeGen<'ctx> {
                 ValueProvider::register(context).make_value(
                     builder,
                     ValueOpaque {
-                        tag: context.const_u8(TypeTag::U64 as u8),
-                        unused_0: context.const_u8(0),
-                        class_id: context.const_u16(0),
-                        unused_1: context.const_u32(0),
-                        raw: result_value,
+                        tag: ConstOrValue::Const(TypeTag::U64),
+                        unused_0: ConstOrValue::Const(0),
+                        class_id: ConstOrValue::Const(ClassId::none()),
+                        unused_1: ConstOrValue::Const(0),
+                        raw: ConstOrValue::Value(result_value),
                     },
                 )
             }
@@ -108,18 +110,18 @@ impl<'ctx> CodeGen<'ctx> {
         let arguments = FunctionArgumentProvider::register(self.context).make_array(
             &builder,
             &[FunctionArgumentOpaque {
-                name: self.context.const_u32(1),
-                type_id: self.context.const_u32(TypeTag::U64 as u32),
+                name: ConstOrValue::Const(Identifier::new(1)),
+                type_id: ConstOrValue::Const(TypeTag::U64.into()),
             }],
         );
 
         let signature_ptr = FunctionSignatureProvider::register(self.context).make_value(
             &builder,
             FunctionSignatureOpaque {
-                class_id: self.context.const_u16(0),
-                argument_count: self.context.const_u16(1),
-                return_type_id: self.context.const_u32(TypeTag::U64 as u32),
-                arguments,
+                class_id: ConstOrValue::Const(ClassId::none()),
+                argument_count: ConstOrValue::Const(1),
+                return_type_id: ConstOrValue::Const(TypeTag::U64.into()),
+                arguments: ConstOrValue::Value(arguments),
             },
         );
 
@@ -134,11 +136,11 @@ impl<'ctx> CodeGen<'ctx> {
         let signature_value = ValueProvider::register(self.context).make_value(
             &builder,
             ValueOpaque {
-                tag: self.context.const_u8(TypeTag::FunctionSignature as u8),
-                unused_0: self.context.const_u8(0),
-                class_id: self.context.const_u16(0),
-                unused_1: self.context.const_u32(0),
-                raw: ptr_int,
+                tag: ConstOrValue::Const(TypeTag::FunctionSignature),
+                unused_0: ConstOrValue::Const(0),
+                class_id: ConstOrValue::Const(ClassId::none()),
+                unused_1: ConstOrValue::Const(0),
+                raw: ConstOrValue::Value(ptr_int),
             },
         );
 
@@ -197,11 +199,11 @@ impl<'ctx> CodeGen<'ctx> {
                 ValueProvider::register(self.context).make_value(
                     builder,
                     ValueOpaque {
-                        tag: context.const_u8(TypeTag::U64 as u8),
-                        unused_0: context.const_u8(0),
-                        class_id: context.const_u16(0),
-                        unused_1: context.const_u32(0),
-                        raw: context.const_u64(match const_value {
+                        tag: ConstOrValue::Const(TypeTag::U64),
+                        unused_0: ConstOrValue::Const(0),
+                        class_id: ConstOrValue::Const(ClassId::none()),
+                        unused_1: ConstOrValue::Const(0),
+                        raw: ConstOrValue::Const(match const_value {
                             ConstValue::U64(value) => value,
                         }),
                     },

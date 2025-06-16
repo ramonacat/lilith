@@ -4,14 +4,32 @@ use std::fmt::Debug;
 #[repr(transparent)]
 pub struct Identifier(u32);
 
+impl Identifier {
+    // TODO this function shouldn't be so public, but we first need to really have interning to be
+    // able to avoid it
+    pub(crate) const fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub const fn as_u32(self) -> u32 {
+        self.0
+    }
+}
+
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum TypeTag {
     Primitive = 0,
 
     U64 = 16,
 
     FunctionSignature = 128,
+}
+
+impl From<TypeTag> for TypeId {
+    fn from(value: TypeTag) -> Self {
+        Self(value as u32)
+    }
 }
 
 impl TypeTag {
@@ -31,6 +49,12 @@ impl TypeTag {
 // TODO this might need to be converted into some more opaque concept, as some types have IDs that
 // only get created at runtime (otoh we can just convert the value, so no biggie?)
 pub struct TypeId(u32);
+
+impl TypeId {
+    pub const fn as_u32(self) -> u32 {
+        self.0
+    }
+}
 
 impl Debug for TypeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
