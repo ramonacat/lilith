@@ -1,6 +1,11 @@
 use std::marker::PhantomData;
 
-use inkwell::{builder::Builder, context::Context, values::PointerValue};
+use inkwell::{
+    builder::Builder,
+    context::Context,
+    types::BasicType,
+    values::{BasicValue, PointerValue},
+};
 
 use super::representations::{LlvmRepresentation, OperandValue};
 use crate::codegen::{ConstOrValue, ContextErgonomics};
@@ -12,7 +17,11 @@ pub(in crate::codegen) struct LlvmArray<'ctx, T: LlvmRepresentation<'ctx>> {
     phantom: PhantomData<T>,
 }
 
-impl<'ctx, T: LlvmRepresentation<'ctx> + OperandValue<'ctx>> LlvmArray<'ctx, T> {
+impl<'ctx, T: LlvmRepresentation<'ctx> + OperandValue<'ctx>> LlvmArray<'ctx, T>
+where
+    <T as LlvmRepresentation<'ctx>>::LlvmValue: BasicValue<'ctx>,
+    <T as LlvmRepresentation<'ctx>>::LlvmType: BasicType<'ctx>,
+{
     pub(in crate::codegen) fn new_uninitialized(
         length: ConstOrValue<'ctx, u64>,
         context: &'ctx Context,

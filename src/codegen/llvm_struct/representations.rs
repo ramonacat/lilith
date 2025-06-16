@@ -2,8 +2,8 @@ use inkwell::{
     AddressSpace,
     builder::Builder,
     context::Context,
-    types::{BasicType, IntType, PointerType},
-    values::{BasicValue, IntValue, PointerValue},
+    types::{AnyType, IntType, PointerType},
+    values::{AnyValue, IntValue, PointerValue},
 };
 
 use crate::{
@@ -38,8 +38,8 @@ pub(in crate::codegen) trait OperandValue<'ctx> {
 
 // TODO is there anything we can do so context doesn't need to be passed all the time?
 pub(in crate::codegen) trait LlvmRepresentation<'ctx>: Sized {
-    type LlvmValue: BasicValue<'ctx>;
-    type LlvmType: BasicType<'ctx>;
+    type LlvmValue: AnyValue<'ctx>;
+    type LlvmType: AnyType<'ctx>;
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType;
 
@@ -47,7 +47,7 @@ pub(in crate::codegen) trait LlvmRepresentation<'ctx>: Sized {
 }
 
 /// This macro is intended to implement representations for types that can be expressed as
-/// primitive values. For more complicated structures, llvm_struct! should be used, as it will be
+/// primitive values. For more complicated structures, `llvm_struct!` should be used, as it will be
 /// actually able to handle the more complex conversion required there.
 macro_rules! llvm_representation {
     (@int $type:ty, $width: literal, $to_int: expr) => {
