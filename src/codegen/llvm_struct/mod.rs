@@ -184,6 +184,7 @@ macro_rules! llvm_struct {
                     }
                 )*
             }
+
             #[allow(unused)]
             fn build_store_into(
                 &self,
@@ -272,13 +273,11 @@ macro_rules! llvm_struct {
 
             impl<'ctx> [<$name OpaquePointer>]<'ctx> {
                 #[allow(unused)]
-                const fn new(
-                // TODO is this even used? if yes, move to the impl for Opaque
+                fn new(
                     pointer: PointerValue<'ctx>,
                     context: &'ctx inkwell::context::Context,
-                    llvm_type: inkwell::types::StructType<'ctx>,
                 ) -> Self {
-                    Self { pointer, context, llvm_type }
+                    Self { pointer, context, llvm_type: [<$name Provider>]::new(context).llvm_type() }
                 }
 
                 // TODO get rid of this method, this is a hack around the bad typestore impl
@@ -310,11 +309,11 @@ macro_rules! llvm_struct {
                 }
 
                 #[allow(unused)]
-                pub(in $crate::codegen) const fn opaque_pointer(
+                pub(in $crate::codegen) fn opaque_pointer(
                     &self,
                     pointer: PointerValue<'ctx>
                 ) -> [<$name OpaquePointer>]<'ctx> {
-                    [<$name OpaquePointer>]::new(pointer, self.context, self.llvm_type)
+                    [<$name OpaquePointer>]::new(pointer, self.context)
                 }
 
                 pub(in $crate::codegen) fn make_value(
@@ -333,7 +332,6 @@ macro_rules! llvm_struct {
                     self.opaque_pointer(target)
                 }
 
-                // TODO [<$name Opaque>] also has an impl of fill_in, unify them
                 pub(in $crate::codegen) fn fill_in(
                     &self,
                     target: inkwell::values::PointerValue<'ctx>,
