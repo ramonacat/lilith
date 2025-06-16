@@ -25,8 +25,8 @@ make_function_type!(GlobalConstructorFunction, ());
 llvm_struct! {
     struct GlobalConstructor {
         priority: u32,
-        // TODO this should be probably connected with GlobalConstructionFunction in some way, but
-        // uhh that requires some meta-thinking
+        // TODO this should be GlobalConstructorFunction, but we need to loosen LlvmRepresentation
+        // to support LlvmValue/LlvmType that are not BasicValue/BasicType
         target: *const fn(),
         initialized_value: Option<*const ()>
     }

@@ -17,8 +17,6 @@ pub(in crate::codegen) trait Procedure<'ctx, TArguments> {
     fn llvm_type(context: &'ctx Context) -> FunctionType<'ctx>;
 
     fn new(value: FunctionValue<'ctx>) -> Self;
-    #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
-    // types exactly and can actually do strongly typed calls
     fn build_call(&self, builder: &Builder<'ctx>, arguments: TArguments);
     // TODO I don't love that API, it is required for global constructors, can we get rid of it? I
     // don't feel like we should expose the function pointer directly...
@@ -31,8 +29,6 @@ pub(in crate::codegen) trait Function<'ctx, TReturn: LlvmRepresentation<'ctx>, T
     fn llvm_type(context: &'ctx Context) -> FunctionType<'ctx>;
 
     fn new(value: FunctionValue<'ctx>) -> Self;
-    #[allow(unused)] // TODO we gotta rizz up the API for ModuleGenerator so that it knows the
-    // types exactly and can actually do strongly typed calls
     fn build_call(&self, builder: &Builder<'ctx>, arguments: TArguments) -> TReturn::LlvmValue;
 }
 
