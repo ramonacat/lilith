@@ -48,7 +48,7 @@ pub(super) fn make_add<'ctx>(
         let store_types = type_store.get_types(&builder);
         let new_value_spot = unsafe {
             builder.build_gep(
-                TypeValueProvider::register(context).llvm_type(),
+                TypeValueProvider::new(context).llvm_type(),
                 store_types,
                 &[store_length],
                 "new_value_spot",
@@ -58,13 +58,13 @@ pub(super) fn make_add<'ctx>(
 
         let new_value = builder
             .build_load(
-                ValueProvider::register(context).llvm_type(),
+                ValueProvider::new(context).llvm_type(),
                 function.get_nth_param(1).unwrap().into_pointer_value(),
                 "new_value",
             )
             .unwrap();
 
-        TypeValueProvider::register(context).fill_in(
+        TypeValueProvider::new(context).fill_in(
             new_value_spot,
             &builder,
             TypeValueOpaque {
@@ -101,7 +101,7 @@ fn expand_capacity<'ctx>(
 
     let new_types = builder
         .build_array_malloc(
-            TypeValueProvider::register(context).llvm_type(),
+            TypeValueProvider::new(context).llvm_type(),
             new_capacity,
             "new_types",
         )

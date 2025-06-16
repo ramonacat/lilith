@@ -77,7 +77,7 @@ pub(in crate::codegen) fn register(context: &Context) -> Module<'_> {
     // TODO we likely want to do some name mangling and have a naming convention and shit for the
     // builtin modules
     let mut module_builder = module_builder_provider.make_builder("type_store");
-    let value_store_provider = TypeStoreProvider::register(context);
+    let value_store_provider = TypeStoreProvider::new(context);
 
     // TODO separate add_global (that takes optional intializer, otherwise zeroes) and
     // add_global_import for importing global from other modules
@@ -91,7 +91,7 @@ pub(in crate::codegen) fn register(context: &Context) -> Module<'_> {
 
     TypeStoreInterface::register(
         &TypeStoreBuilderImpl {
-            type_store: TypeStoreProvider::register(context)
+            type_store: TypeStoreProvider::new(context)
                 .opaque_pointer(type_store.as_pointer_value()),
         },
         &mut module_builder,

@@ -34,7 +34,7 @@ llvm_struct! {
 
 pub fn register(context: &Context) -> ModuleBuilderProvider<'_> {
     ModuleBuilderProvider {
-        global_constructors_provider: GlobalConstructorProvider::register(context),
+        global_constructors_provider: GlobalConstructorProvider::new(context),
         context,
     }
 }

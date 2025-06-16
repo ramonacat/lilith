@@ -71,12 +71,13 @@ macro_rules! llvm_struct {
             fn assert_valid(_context: &'ctx inkwell::context::Context, _value: &$crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, Self>) {}
 
             fn llvm_type(context: &'ctx inkwell::context::Context) -> Self::LlvmType {
-                paste::paste! { [<$name Provider>]::register(context).llvm_type() }
+                paste::paste! { [<$name Provider>]::new(context).llvm_type() }
             }
         }
 
         impl<'ctx>
             $crate::codegen::llvm_struct::representations::OperandValue<'ctx>
+                // TODO this should be also implemented for $name and [<$name Opaque>]
                 for $crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, $name> {
             // TODO could this somehow work with or replace make_value?
             #[allow(unused)]
@@ -232,8 +233,7 @@ macro_rules! llvm_struct {
 
             #[allow(unused)]
             impl<'ctx> [<$name Provider>]<'ctx> {
-                // TODO rename to new
-                pub(in $crate::codegen) fn register(context: &'ctx inkwell::context::Context) -> Self {
+                pub(in $crate::codegen) fn new(context: &'ctx inkwell::context::Context) -> Self {
                     // TODO get the existing struct if there's already one
                     let llvm_type = context.named_struct(stringify!($name), &[
                         $(<$field_type>::llvm_type(&context).into()),+

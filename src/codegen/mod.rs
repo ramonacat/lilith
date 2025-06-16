@@ -62,7 +62,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // TODO the .llvm_context here is needed because the value needs to know the
                 // context type, but perhaps we can switch up to dyn or something there to side-step the
                 // issue (I don't think the value should really have the knowledge of context type)
-                ValueProvider::register(context).make_value(
+                ValueProvider::new(context).make_value(
                     builder,
                     ValueOpaque {
                         tag: ConstOrValue::Const(TypeTag::U64),
@@ -107,7 +107,7 @@ impl<'ctx> CodeGen<'ctx> {
         let type_store_api: TypeStoreInterface =
             TypeStoreInterface::expose_to(&module, self.context);
 
-        let arguments = FunctionArgumentProvider::register(self.context).make_array(
+        let arguments = FunctionArgumentProvider::new(self.context).make_array(
             &builder,
             &[FunctionArgumentOpaque {
                 name: ConstOrValue::Const(Identifier::new(1)),
@@ -115,7 +115,7 @@ impl<'ctx> CodeGen<'ctx> {
             }],
         );
 
-        let signature_ptr = FunctionSignatureProvider::register(self.context).make_value(
+        let signature_ptr = FunctionSignatureProvider::new(self.context).make_value(
             &builder,
             FunctionSignatureOpaque {
                 class_id: ConstOrValue::Const(ClassId::none()),
@@ -133,7 +133,7 @@ impl<'ctx> CodeGen<'ctx> {
             )
             .unwrap();
 
-        let signature_value = ValueProvider::register(self.context).make_value(
+        let signature_value = ValueProvider::new(self.context).make_value(
             &builder,
             ValueOpaque {
                 tag: ConstOrValue::Const(TypeTag::FunctionSignature),
@@ -196,7 +196,7 @@ impl<'ctx> CodeGen<'ctx> {
         match value {
             crate::bytecode::Value::Literal(const_value) => {
                 // TODO add some comfort methods for simple i*_type constants
-                ValueProvider::register(self.context).make_value(
+                ValueProvider::new(self.context).make_value(
                     builder,
                     ValueOpaque {
                         tag: ConstOrValue::Const(TypeTag::U64),

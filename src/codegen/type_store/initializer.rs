@@ -19,13 +19,13 @@ pub(super) fn make_type_store_initializer<'ctx>(
         // TODO we should be using make_value from TypeValueProvider here
         let types = builder
             .build_array_malloc(
-                TypeValueProvider::register(context).llvm_type(),
+                TypeValueProvider::new(context).llvm_type(),
                 context.const_u32(1),
                 "types",
             )
             .unwrap();
 
-        TypeStoreProvider::register(context).fill_in(
+        TypeStoreProvider::new(context).fill_in(
             type_store,
             &builder,
             super::TypeStoreOpaque {

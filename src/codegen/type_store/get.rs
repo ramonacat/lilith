@@ -15,7 +15,7 @@ pub(super) fn make_get<'ctx>(
         // TODO the types here should have some kinda array type, so we don't have to duck around
         // with the GEP manually
         let elements = type_store.get_types(&builder);
-        let element_type = TypeValueProvider::register(context).llvm_type();
+        let element_type = TypeValueProvider::new(context).llvm_type();
 
         let element_ptr = unsafe {
             builder.build_gep(
@@ -29,7 +29,7 @@ pub(super) fn make_get<'ctx>(
         }
         .unwrap();
 
-        let result = TypeValueProvider::register(context)
+        let result = TypeValueProvider::new(context)
             .opaque_pointer(element_ptr)
             .get_type_ptr(&builder);
 
