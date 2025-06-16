@@ -46,6 +46,9 @@ pub(in crate::codegen) trait LlvmRepresentation<'ctx>: Sized {
     fn assert_valid(context: &'ctx Context, value: &ConstOrValue<'ctx, Self>);
 }
 
+/// This macro is intended to implement representations for types that can be expressed as
+/// primitive values. For more complicated structures, llvm_struct! should be used, as it will be
+/// actually able to handle the more complex conversion required there.
 macro_rules! llvm_representation {
     (@int $type:ty, $width: literal, $to_int: expr) => {
         impl<'ctx> LlvmRepresentation<'ctx> for $type {
@@ -163,8 +166,6 @@ llvm_representation!(@int u32, 32, |x:&u32| u64::from(*x));
 llvm_representation!(@int u64, 64, |x:&u64| *x);
 // TODO We have to check that the structs actually have a repr(C)/repr(transparent) and enums have
 // repr(u*), but AFAIK that's only possible with proc macros, so this is a future me problem
-// TODO perhaps the structs should use the type_maker instead, and llvm_representation should be
-// reserved for primitives?
 llvm_representation!(@int TypeTag, 8, |raw:&TypeTag| *raw as u64);
 llvm_representation!(@int ClassId, 16, |raw:&ClassId| u64::from(raw.as_u16()));
 llvm_representation!(@int Identifier, 32, |raw:&Identifier| u64::from(raw.as_u32()));
