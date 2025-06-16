@@ -166,8 +166,7 @@ macro_rules! llvm_struct {
                     context: &'ctx inkwell::context::Context,
                     builder: &inkwell::builder::Builder<'ctx>,
                 ) {
-                    // TODO check why we need a double reference for context here and fix it
-                    let llvm_type = <$name>::llvm_type(&context);
+                    let llvm_type = <$name>::llvm_type(context);
                     let mut index:u32 = 0;
 
                     $({
@@ -234,10 +233,12 @@ macro_rules! llvm_struct {
             #[allow(unused)]
             impl<'ctx> [<$name Provider>]<'ctx> {
                 pub(in $crate::codegen) fn new(context: &'ctx inkwell::context::Context) -> Self {
-                    // TODO get the existing struct if there's already one
-                    let llvm_type = context.named_struct(stringify!($name), &[
-                        $(<$field_type>::llvm_type(&context).into()),+
-                    ]);
+                    let llvm_type = context.get_struct_type(stringify!($name))
+                        .unwrap_or_else(
+                        || context.named_struct(stringify!($name), &[
+                            $(<$field_type>::llvm_type(&context).into()),+
+                        ])
+                    );
                     Self { llvm_type, context }
                 }
 
