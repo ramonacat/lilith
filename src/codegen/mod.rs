@@ -10,7 +10,7 @@ pub(in crate::codegen) mod types;
 
 use std::collections::HashMap;
 
-use context::type_maker::{Function, Procedure as _};
+use context::{Function, Procedure as _};
 use context_ergonomics::ContextErgonomics;
 use inkwell::{builder::Builder, context::Context};
 use llvm_struct::{opaque_struct::LlvmArray, representations::ConstOrValue};

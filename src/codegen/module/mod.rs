@@ -12,7 +12,7 @@ use inkwell::{
 
 use super::{
     builtins::DebugTypeDefinition,
-    context::type_maker::{Function, Procedure},
+    context::{Function, Procedure},
     llvm_struct::representations::ConstOrValue,
 };
 use crate::codegen::{

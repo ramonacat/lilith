@@ -1,7 +1,7 @@
 use inkwell::{context::Context, module::Module, values::PointerValue};
 
 use crate::codegen::{
-    context::type_maker::{Function, Procedure},
+    context::{Function, Procedure},
     llvm_struct::representations::OperandValue,
     module::ModuleBuilder,
 };
