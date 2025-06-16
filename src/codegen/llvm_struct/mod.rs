@@ -1,5 +1,6 @@
 pub(in crate::codegen) mod basic_value_enum;
 pub(in crate::codegen) mod opaque_struct;
+pub(in crate::codegen) mod raw_array;
 pub(in crate::codegen) mod representations;
 
 #[macro_export]

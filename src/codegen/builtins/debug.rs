@@ -22,11 +22,14 @@ impl std::fmt::Debug for crate::codegen::types::values::Value {
                 let mut formatted_arguments = String::new();
 
                 let signature = self.raw as *const FunctionSignature;
-                let arguments = unsafe { &*signature }.arguments;
-                let argument_count = unsafe { &*signature }.argument_count;
-                for i in 0..argument_count {
-                    let argument = unsafe { &*arguments.add(usize::from(i)) };
+                let FunctionSignature {
+                    argument_count,
+                    arguments,
+                    class_id: _,
+                    return_type_id: _,
+                } = unsafe { &*signature };
 
+                for argument in unsafe { arguments.iter(*argument_count as usize) } {
                     write!(
                         formatted_arguments,
                         "({:?}, {:?}), ",

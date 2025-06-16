@@ -1,3 +1,4 @@
+// TODO rename this mod to llvm_array or smth
 use std::marker::PhantomData;
 
 use inkwell::{
@@ -58,11 +59,6 @@ where
         uninitialized
     }
 
-    // TODO ideally get rid of this, and just past the object itself everywhere
-    pub(in crate::codegen) const fn as_pointer(&self) -> PointerValue<'ctx> {
-        self.pointer
-    }
-
     fn fill_const<const LENGTH: usize>(
         &self,
         values: [T; LENGTH],
@@ -96,5 +92,9 @@ where
             )
         }
         .unwrap()
+    }
+
+    pub(crate) const fn as_pointer(&self) -> PointerValue<'ctx> {
+        self.pointer
     }
 }

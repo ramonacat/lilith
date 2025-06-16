@@ -7,6 +7,7 @@ use crate::{
         context_ergonomics::ContextErgonomics,
         llvm_struct::{
             basic_value_enum::IntoValue,
+            raw_array::RawConstArray,
             representations::{LlvmRepresentation, OperandValue},
         },
     },
@@ -25,6 +26,6 @@ llvm_struct! {
         class_id: ClassId,
         argument_count: u16,
         return_type_id: TypeId,
-        arguments: *const FunctionArgument
+        arguments: RawConstArray<FunctionArgument>
     }
 }

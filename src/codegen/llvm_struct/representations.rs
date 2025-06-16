@@ -34,6 +34,7 @@ pub(in crate::codegen) trait LlvmRepresentation<'ctx>: Sized {
     type LlvmType: AnyType<'ctx>;
 
     fn llvm_type(context: &'ctx Context) -> Self::LlvmType;
+    // TODO Should this also take a builder and generate runtime assertions where needed?
     fn assert_valid(context: &'ctx Context, value: &ConstOrValue<'ctx, Self>);
 }
 
