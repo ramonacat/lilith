@@ -23,11 +23,11 @@ use crate::codegen::{
 make_function_type!(GlobalConstructorFunction, ());
 
 llvm_struct! {
-    struct GlobalConstructor {
+    struct GlobalConstructor<'ctx> {
         priority: u32,
-        // TODO this should be GlobalConstructorFunction, but we need to loosen LlvmRepresentation
-        // to support LlvmValue/LlvmType that are not BasicValue/BasicType
-        target: *const fn(),
+        target: *const GlobalConstructorFunction<'ctx>,
+        // TODO introduce generics so we can actually set the real type here? or is it not worth
+        // the drama?
         initialized_value: Option<*const ()>
     }
 }

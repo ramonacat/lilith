@@ -58,16 +58,18 @@ macro_rules! get_field {
 
 #[macro_export]
 macro_rules! llvm_struct {
-    (struct $name:ident { $($field_name:ident: $field_type:ty),+ }) => {
+    // TODO the lifetime here is kinda a lie, because the macros will all break if it's not called
+    // ctx
+    (struct $name:ident $(<$lifetime:lifetime>)? { $($field_name:ident: $field_type:ty),+ }) => {
         #[repr(C)]
         #[allow(unused)]
-        pub(in $crate::codegen) struct $name {
+        pub(in $crate::codegen) struct $name $(<$lifetime>)? {
             $(pub(in $crate::codegen) $field_name: $field_type),+
         }
 
         paste::paste!{
-            impl $name {
-                pub(in $crate::codegen) const fn into_opaque<'ctx>(self) -> [<$name Opaque>]<'ctx> {
+            impl<'ctx> $name $(<$lifetime>)? {
+                pub(in $crate::codegen) const fn into_opaque(self) -> [<$name Opaque>]<'ctx> {
                     [<$name Opaque>] {
                         $($field_name: $crate::codegen::llvm_struct::representations::ConstOrValue::Const(self.$field_name)),*
                     }
@@ -75,7 +77,7 @@ macro_rules! llvm_struct {
             }
         }
 
-        impl<'ctx> LlvmRepresentation<'ctx> for $name {
+        impl<'ctx> LlvmRepresentation<'ctx> for $name $(<$lifetime>)? {
             type LlvmType = inkwell::types::StructType<'ctx>;
             type LlvmValue = inkwell::values::StructValue<'ctx>;
 
@@ -88,7 +90,7 @@ macro_rules! llvm_struct {
 
         impl<'ctx>
             $crate::codegen::llvm_struct::representations::OperandValue<'ctx>
-                for $name {
+                for $name $(<$lifetime>)? {
             // TODO could this somehow work with or replace make_value?
             #[allow(unused)]
             fn build_move_into(
@@ -118,7 +120,7 @@ macro_rules! llvm_struct {
         impl<'ctx>
             $crate::codegen::llvm_struct::representations::OperandValue<'ctx>
                 // TODO this should be also implemented for $name and [<$name Opaque>]
-                for $crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, $name> {
+                for $crate::codegen::llvm_struct::representations::ConstOrValue<'ctx, $name $(<$lifetime>)?> {
             // TODO could this somehow work with or replace make_value?
             #[allow(unused)]
             fn build_move_into(
